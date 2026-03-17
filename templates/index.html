@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AttritionIQ — HR Intelligence Platform</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #06070d;
+    --surface: #0d1117;
+    --surface2: #161b22;
+    --border: #21262d;
+    --accent: #00d4aa;
+    --accent2: #7c5cfc;
+    --danger: #ff4d6d;
+    --warn: #f59e0b;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --card: #0d1117;
+  }
+
+  body {
+    font-family: 'Space Grotesk', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* Animated mesh background */
+  .bg-mesh {
+    position: fixed; inset: 0; z-index: 0;
+    background:
+      radial-gradient(ellipse 80% 60% at 20% 50%, rgba(0,212,170,0.06) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 80% at 80% 20%, rgba(124,92,252,0.08) 0%, transparent 60%),
+      radial-gradient(ellipse 50% 50% at 50% 100%, rgba(0,212,170,0.04) 0%, transparent 60%);
+  }
+
+  .grid-lines {
+    position: fixed; inset: 0; z-index: 0;
+    background-image:
+      linear-gradient(rgba(0,212,170,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,212,170,0.04) 1px, transparent 1px);
+    background-size: 50px 50px;
+    mask-image: radial-gradient(ellipse 100% 100% at 50% 50%, black 30%, transparent 80%);
+  }
+
+  .floating-orbs {
+    position: fixed; inset: 0; z-index: 0; overflow: hidden;
+  }
+  .orb {
+    position: absolute; border-radius: 50%;
+    filter: blur(80px); opacity: 0.15;
+    animation: float 20s ease-in-out infinite;
+  }
+  .orb1 { width: 400px; height: 400px; background: var(--accent); top: -100px; left: -100px; animation-delay: 0s; }
+  .orb2 { width: 300px; height: 300px; background: var(--accent2); top: 60%; right: -50px; animation-delay: -7s; }
+  .orb3 { width: 200px; height: 200px; background: var(--accent); bottom: -50px; left: 40%; animation-delay: -14s; }
+
+  @keyframes float {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    33% { transform: translate(30px, -30px) scale(1.05); }
+    66% { transform: translate(-20px, 20px) scale(0.95); }
+  }
+
+  /* Login container */
+  .login-wrapper {
+    position: relative; z-index: 10;
+    display: flex; gap: 0;
+    width: 900px; max-width: 95vw;
+    border-radius: 24px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    box-shadow: 0 50px 100px rgba(0,0,0,0.5), 0 0 0 1px rgba(0,212,170,0.05);
+    animation: slideUp 0.8s cubic-bezier(0.16,1,0.3,1) both;
+  }
+
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(40px) scale(0.96); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  /* Left panel */
+  .brand-panel {
+    flex: 1.2;
+    background: linear-gradient(135deg, #0d1117 0%, #0a0f1a 100%);
+    padding: 52px 48px;
+    display: flex; flex-direction: column;
+    position: relative; overflow: hidden;
+    border-right: 1px solid var(--border);
+  }
+
+  .brand-panel::before {
+    content: '';
+    position: absolute; top: -50%; left: -50%;
+    width: 200%; height: 200%;
+    background: radial-gradient(circle at 70% 50%, rgba(0,212,170,0.08) 0%, transparent 50%);
+  }
+
+  .logo {
+    display: flex; align-items: center; gap: 12px;
+    margin-bottom: 48px; position: relative;
+  }
+
+  .logo-icon {
+    width: 44px; height: 44px;
+    background: linear-gradient(135deg, var(--accent), #00a880);
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px;
+    box-shadow: 0 0 20px rgba(0,212,170,0.3);
+  }
+
+  .logo-text { font-size: 22px; font-weight: 700; letter-spacing: -0.5px; }
+  .logo-text span { color: var(--accent); }
+
+  .brand-headline {
+    font-size: 34px; font-weight: 700;
+    line-height: 1.2; letter-spacing: -1px;
+    margin-bottom: 20px; position: relative;
+  }
+
+  .brand-headline .gradient-text {
+    background: linear-gradient(135deg, var(--accent) 0%, #7c5cfc 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+
+  .brand-sub {
+    color: var(--muted); font-size: 15px; line-height: 1.6;
+    margin-bottom: 40px; position: relative;
+  }
+
+  .feature-list { position: relative; }
+  .feature-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+  }
+  .feature-item:last-child { border-bottom: none; }
+  .feature-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--accent); flex-shrink: 0;
+    box-shadow: 0 0 8px var(--accent);
+  }
+  .feature-item span { font-size: 13px; color: var(--muted); }
+  .feature-item strong { color: var(--text); font-weight: 500; }
+
+  .stats-row {
+    display: flex; gap: 24px; margin-top: 40px;
+    position: relative;
+  }
+  .stat-box {
+    flex: 1; padding: 16px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--border); border-radius: 12px;
+  }
+  .stat-box .val {
+    font-size: 24px; font-weight: 700;
+    color: var(--accent); font-family: 'DM Mono', monospace;
+  }
+  .stat-box .lbl { font-size: 11px; color: var(--muted); margin-top: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+  /* Right panel - form */
+  .form-panel {
+    flex: 1;
+    background: var(--surface);
+    padding: 52px 44px;
+    display: flex; flex-direction: column; justify-content: center;
+  }
+
+  .form-title { font-size: 26px; font-weight: 700; margin-bottom: 8px; letter-spacing: -0.5px; }
+  .form-sub { color: var(--muted); font-size: 14px; margin-bottom: 36px; }
+
+  .form-group { margin-bottom: 20px; }
+  .form-group label { display: block; font-size: 13px; font-weight: 500; color: var(--muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+  .input-wrap { position: relative; }
+  .input-wrap .icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: 16px; }
+
+  .form-input {
+    width: 100%; padding: 13px 14px 13px 42px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--text);
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 14px;
+    transition: all 0.2s;
+    outline: none;
+  }
+  .form-input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(0,212,170,0.1);
+  }
+  .form-input::placeholder { color: #3d444d; }
+
+  .btn-login {
+    width: 100%; padding: 14px;
+    background: linear-gradient(135deg, var(--accent), #00a880);
+    border: none; border-radius: 10px;
+    color: #0a0f1a; font-family: 'Space Grotesk', sans-serif;
+    font-size: 15px; font-weight: 700;
+    cursor: pointer; margin-top: 8px;
+    transition: all 0.2s;
+    letter-spacing: 0.3px;
+    position: relative; overflow: hidden;
+  }
+  .btn-login:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 24px rgba(0,212,170,0.3);
+  }
+  .btn-login:active { transform: translateY(0); }
+
+  .btn-login .spinner {
+    display: none; width: 18px; height: 18px;
+    border: 2px solid rgba(0,0,0,0.3); border-top-color: #000;
+    border-radius: 50%; animation: spin 0.7s linear infinite;
+    margin: 0 auto;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .demo-creds {
+    margin-top: 24px;
+    padding: 16px;
+    background: rgba(0,212,170,0.05);
+    border: 1px solid rgba(0,212,170,0.15);
+    border-radius: 10px;
+  }
+  .demo-creds p { font-size: 12px; color: var(--muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .cred-row {
+    display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px;
+  }
+  .cred-badge {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px; padding: 4px 10px;
+    background: rgba(0,212,170,0.1); border: 1px solid rgba(0,212,170,0.2);
+    border-radius: 6px; color: var(--accent); cursor: pointer;
+    transition: all 0.15s;
+  }
+  .cred-badge:hover { background: rgba(0,212,170,0.2); }
+
+  .error-msg {
+    background: rgba(255,77,109,0.1); border: 1px solid rgba(255,77,109,0.3);
+    border-radius: 8px; padding: 12px 14px; margin-bottom: 16px;
+    font-size: 13px; color: #ff4d6d; display: none;
+  }
+</style>
+</head>
+<body>
+
+<div class="bg-mesh"></div>
+<div class="grid-lines"></div>
+<div class="floating-orbs">
+  <div class="orb orb1"></div>
+  <div class="orb orb2"></div>
+  <div class="orb orb3"></div>
+</div>
+
+<div class="login-wrapper">
+  <!-- Brand Panel -->
+  <div class="brand-panel">
+    <div class="logo">
+      <div class="logo-icon">🧠</div>
+      <div class="logo-text">Attrition<span>IQ</span></div>
+    </div>
+
+    <h1 class="brand-headline">
+      Predict Who's<br>
+      <span class="gradient-text">Leaving Next</span>
+    </h1>
+    <p class="brand-sub">
+      AI-powered HR intelligence that identifies flight risks before they become resignations.
+    </p>
+
+    <div class="feature-list">
+      <div class="feature-item">
+        <div class="feature-dot"></div>
+        <span><strong>Hybrid Ensemble ML</strong> — 5 models with weighted voting</span>
+      </div>
+      <div class="feature-item">
+        <div class="feature-dot"></div>
+        <span><strong>49 Features</strong> — 18 engineered + 31 original signals</span>
+      </div>
+      <div class="feature-item">
+        <div class="feature-dot"></div>
+        <span><strong>Natural Language</strong> — Explainable AI for every prediction</span>
+      </div>
+      <div class="feature-item">
+        <div class="feature-dot"></div>
+        <span><strong>HR Recommendations</strong> — Priority-ranked retention actions</span>
+      </div>
+    </div>
+
+    <div class="stats-row">
+      <div class="stat-box">
+        <div class="val">84%</div>
+        <div class="lbl">Accuracy</div>
+      </div>
+      <div class="stat-box">
+        <div class="val">0.92</div>
+        <div class="lbl">ROC-AUC</div>
+      </div>
+      <div class="stat-box">
+        <div class="val">1,470</div>
+        <div class="lbl">Records</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Form Panel -->
+  <div class="form-panel">
+    <h2 class="form-title">Welcome back</h2>
+    <p class="form-sub">Sign in to access the HR Intelligence Platform</p>
+
+    <div class="error-msg" id="errorMsg">Invalid username or password</div>
+
+    <div class="form-group">
+      <label>Username</label>
+      <div class="input-wrap">
+        <span class="icon">👤</span>
+        <input type="text" class="form-input" id="username" placeholder="Enter username" value="admin">
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label>Password</label>
+      <div class="input-wrap">
+        <span class="icon">🔐</span>
+        <input type="password" class="form-input" id="password" placeholder="Enter password" value="admin123">
+      </div>
+    </div>
+
+    <button class="btn-login" id="loginBtn" onclick="doLogin()">
+      <span id="btnText">Sign In →</span>
+      <div class="spinner" id="spinner"></div>
+    </button>
+
+    <div class="demo-creds">
+      <p>Demo credentials — click to autofill</p>
+      <div class="cred-row">
+        <span class="cred-badge" onclick="fillCreds('admin','admin123')">admin / admin123</span>
+        <span class="cred-badge" onclick="fillCreds('hr_manager','hr2024')">hr_manager / hr2024</span>
+        <span class="cred-badge" onclick="fillCreds('analyst','data2024')">analyst / data2024</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function fillCreds(u, p) {
+  document.getElementById('username').value = u;
+  document.getElementById('password').value = p;
+}
+
+async function doLogin() {
+  const user = document.getElementById('username').value;
+  const pass = document.getElementById('password').value;
+  const btn = document.getElementById('loginBtn');
+  const txt = document.getElementById('btnText');
+  const spin = document.getElementById('spinner');
+  const err = document.getElementById('errorMsg');
+
+  txt.style.display = 'none'; spin.style.display = 'block';
+  btn.disabled = true; err.style.display = 'none';
+
+  try {
+    const res = await fetch('/api/login', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({username: user, password: pass})
+    });
+    const data = await res.json();
+    if (data.success) {
+      sessionStorage.setItem('token', data.token);
+      sessionStorage.setItem('user', data.user);
+      sessionStorage.setItem('role', data.role || 'HR Manager');
+      btn.style.background = 'linear-gradient(135deg, #00d4aa, #00a880)';
+      txt.textContent = '✓ Redirecting...';
+      txt.style.display = 'block'; spin.style.display = 'none';
+      setTimeout(() => window.location.href = '/dashboard', 600);
+    } else {
+      err.style.display = 'block';
+      txt.style.display = 'block'; spin.style.display = 'none';
+      btn.disabled = false;
+    }
+  } catch(e) {
+    err.textContent = 'Server connection error. Please try again.';
+    err.style.display = 'block';
+    txt.style.display = 'block'; spin.style.display = 'none';
+    btn.disabled = false;
+  }
+}
+
+document.addEventListener('keypress', e => { if(e.key === 'Enter') doLogin(); });
+</script>
+</body>
+</html>

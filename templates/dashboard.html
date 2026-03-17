@@ -1,0 +1,1315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AttritionIQ — Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#06070d;--surface:#0d1117;--surface2:#161b22;--surface3:#1c2128;
+  --border:#21262d;--accent:#00d4aa;--accent2:#7c5cfc;--danger:#ff4d6d;
+  --warn:#f59e0b;--info:#38bdf8;--text:#e6edf3;--muted:#8b949e;
+  --success:#34d399;--critical:#ff4d6d;--high:#fb923c;--medium:#f59e0b;--low:#34d399;
+}
+body{font-family:'Space Grotesk',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+
+/* ── SIDEBAR ── */
+.sidebar{position:fixed;left:0;top:0;bottom:0;width:240px;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;z-index:100}
+.sidebar-logo{padding:22px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+.sidebar-logo .icon{width:36px;height:36px;background:linear-gradient(135deg,var(--accent),#00a880);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px;box-shadow:0 0 16px rgba(0,212,170,.25)}
+.sidebar-logo .brand{font-size:18px;font-weight:700}.sidebar-logo .brand span{color:var(--accent)}
+.nav-section{padding:16px 12px 6px}
+.nav-label{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);padding:0 8px;margin-bottom:6px}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;cursor:pointer;transition:all .15s;font-size:13px;font-weight:500;color:var(--muted);margin-bottom:2px}
+.nav-item:hover{background:var(--surface2);color:var(--text)}
+.nav-item.active{background:rgba(0,212,170,.1);color:var(--accent)}
+.nav-item .nav-icon{font-size:15px;width:18px;text-align:center}
+.sidebar-footer{margin-top:auto;padding:14px 12px;border-top:1px solid var(--border)}
+.user-card{display:flex;align-items:center;gap:10px;padding:10px;border-radius:8px;background:var(--surface2)}
+.user-avatar{width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,var(--accent2),#5b3fd4);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0}
+.user-info .name{font-size:13px;font-weight:600}.user-info .role{font-size:11px;color:var(--muted)}
+.btn-logout{margin-left:auto;background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;padding:4px;transition:color .15s}
+.btn-logout:hover{color:var(--danger)}
+
+/* ── MAIN ── */
+.main{margin-left:240px;min-height:100vh}
+.topbar{position:sticky;top:0;z-index:50;background:rgba(6,7,13,.9);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);padding:14px 28px;display:flex;align-items:center;gap:16px}
+.topbar h1{font-size:18px;font-weight:700;letter-spacing:-.3px}
+.topbar .subtitle{font-size:12px;color:var(--muted)}
+.topbar-right{margin-left:auto;display:flex;align-items:center;gap:12px}
+.status-pill{display:flex;align-items:center;gap:6px;padding:5px 12px;background:rgba(52,211,153,.08);border:1px solid rgba(52,211,153,.2);border-radius:20px}
+.status-dot{width:7px;height:7px;border-radius:50%;background:var(--success);box-shadow:0 0 7px var(--success);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.status-text{font-size:12px;color:var(--success);font-weight:600}
+.accuracy-badge{padding:5px 14px;background:rgba(0,212,170,.08);border:1px solid rgba(0,212,170,.2);border-radius:20px;font-size:12px;font-weight:600;color:var(--accent);font-family:'DM Mono',monospace}
+
+/* ── TABS ── */
+.tab-bar{display:flex;gap:0;border-bottom:1px solid var(--border);padding:0 28px;background:var(--surface)}
+.tab-btn{padding:14px 20px;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;border:none;background:none;border-bottom:2px solid transparent;transition:all .2s;display:flex;align-items:center;gap:6px;font-family:'Space Grotesk',sans-serif}
+.tab-btn:hover{color:var(--text)}
+.tab-btn.active{color:var(--accent);border-bottom-color:var(--accent)}
+.tab-content{display:none}.tab-content.active{display:block}
+
+/* ── CONTENT ── */
+.content{padding:24px 28px}
+.section-title{font-size:13px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+
+/* ── UPLOAD ── */
+.upload-zone{border:2px dashed var(--border);border-radius:16px;padding:36px;text-align:center;transition:all .2s;cursor:pointer;background:var(--surface);position:relative;overflow:hidden}
+.upload-zone:hover,.upload-zone.drag-over{border-color:var(--accent);background:rgba(0,212,170,.02)}
+.upload-icon{font-size:32px;margin-bottom:10px}
+.upload-title{font-size:15px;font-weight:600;margin-bottom:5px}
+.upload-sub{font-size:13px;color:var(--muted);margin-bottom:14px}
+.upload-actions{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+input[type="file"]{display:none}
+.upload-progress{display:none;margin-top:14px;background:var(--surface2);border-radius:4px;height:4px}
+.progress-bar{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));width:0;transition:width .3s;border-radius:4px}
+
+/* ── BUTTONS ── */
+.btn{padding:9px 18px;border-radius:8px;font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:600;cursor:pointer;border:none;transition:all .2s;display:inline-flex;align-items:center;gap:6px}
+.btn-primary{background:var(--accent);color:#0a0f1a}
+.btn-primary:hover{background:#00e6b8;box-shadow:0 4px 16px rgba(0,212,170,.25);transform:translateY(-1px)}
+.btn-outline{background:transparent;color:var(--text);border:1px solid var(--border)}
+.btn-outline:hover{border-color:var(--muted);background:var(--surface2)}
+.btn-sm{padding:5px 11px;font-size:12px}
+.btn-ghost{background:transparent;color:var(--muted);border:none;font-size:12px;cursor:pointer;font-family:'Space Grotesk',sans-serif;padding:5px 8px;border-radius:6px;transition:all .15s}
+.btn-ghost:hover{background:var(--surface2);color:var(--text)}
+
+/* ── KPI ── */
+.kpi-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:24px}
+.kpi-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px;position:relative;overflow:hidden;transition:all .2s}
+.kpi-card:hover{border-color:rgba(0,212,170,.2);transform:translateY(-1px)}
+.kpi-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--kpi-clr,var(--accent))}
+.kpi-card.danger{--kpi-clr:var(--danger)}.kpi-card.warn{--kpi-clr:var(--warn)}.kpi-card.info{--kpi-clr:var(--info)}.kpi-card.success{--kpi-clr:var(--success)}
+.kpi-label{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:8px}
+.kpi-value{font-size:28px;font-weight:700;letter-spacing:-1px;font-family:'DM Mono',monospace}
+.kpi-value.danger{color:var(--danger)}.kpi-value.warn{color:var(--warn)}.kpi-value.info{color:var(--info)}.kpi-value.success{color:var(--success)}
+.kpi-sub{font-size:11px;color:var(--muted);margin-top:5px}
+
+/* ── CHARTS ── */
+.charts-grid{display:grid;gap:18px;margin-bottom:24px}
+.charts-row2{grid-template-columns:1fr 1fr 1fr}
+.charts-row3{grid-template-columns:2fr 1fr}
+.chart-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px}
+.chart-title{font-size:14px;font-weight:600;margin-bottom:3px}
+.chart-sub{font-size:12px;color:var(--muted);margin-bottom:16px}
+.chart-wrap{position:relative;height:200px}
+.chart-wrap.tall{height:240px}
+
+/* ── RISK BADGES ── */
+.risk-badges{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.risk-badge{display:flex;align-items:center;gap:5px;padding:6px 12px;border-radius:20px;font-size:12px;font-weight:600;border:1px solid}
+.risk-badge.critical{background:rgba(255,77,109,.08);border-color:rgba(255,77,109,.25);color:var(--critical)}
+.risk-badge.high{background:rgba(251,146,60,.08);border-color:rgba(251,146,60,.25);color:var(--high)}
+.risk-badge.medium{background:rgba(245,158,11,.08);border-color:rgba(245,158,11,.25);color:var(--medium)}
+.risk-badge.low{background:rgba(52,211,153,.08);border-color:rgba(52,211,153,.25);color:var(--low)}
+.risk-badge .dot{width:7px;height:7px;border-radius:50%;background:currentColor}
+
+/* ── TABLE ── */
+.table-section{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden}
+.table-header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.table-title{font-size:14px;font-weight:600}
+.table-actions{margin-left:auto;display:flex;gap:8px;align-items:center}
+.search-input{padding:7px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:13px;outline:none;width:200px;transition:all .2s}
+.search-input:focus{border-color:var(--accent)}
+.search-input::placeholder{color:#3d444d}
+.filter-select{padding:7px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:13px;outline:none;cursor:pointer}
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+thead{background:var(--surface2)}
+thead th{padding:11px 14px;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);font-weight:600;text-align:left;white-space:nowrap;cursor:pointer;user-select:none}
+thead th:hover{color:var(--text)}
+tbody tr{border-bottom:1px solid rgba(255,255,255,.03);transition:background .12s;cursor:pointer}
+tbody tr:hover{background:rgba(255,255,255,.025)}
+tbody td{padding:12px 14px;font-size:13px;white-space:nowrap}
+.badge{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:600}
+.badge-critical{background:rgba(255,77,109,.1);color:var(--critical);border:1px solid rgba(255,77,109,.2)}
+.badge-high{background:rgba(251,146,60,.1);color:var(--high);border:1px solid rgba(251,146,60,.2)}
+.badge-medium{background:rgba(245,158,11,.1);color:var(--medium);border:1px solid rgba(245,158,11,.2)}
+.badge-low{background:rgba(52,211,153,.1);color:var(--low);border:1px solid rgba(52,211,153,.2)}
+.risk-bar{height:5px;border-radius:3px;background:var(--surface2);width:70px;overflow:hidden;display:inline-block;vertical-align:middle}
+.risk-bar-fill{height:100%;border-radius:3px;transition:width .5s}
+.table-footer{padding:12px 20px;border-top:1px solid var(--border);display:flex;align-items:center;gap:10px}
+.table-count{font-size:12px;color:var(--muted)}
+.pagination{display:flex;gap:4px;margin-left:auto}
+.page-btn{padding:5px 9px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:12px;cursor:pointer;transition:all .15s}
+.page-btn:hover,.page-btn.active{background:var(--accent);color:#0a0f1a;border-color:var(--accent)}
+
+/* ── FEATURE IMPORTANCE BARS ── */
+.fi-list{display:flex;flex-direction:column;gap:7px;max-height:200px;overflow-y:auto}
+.fi-item{display:flex;align-items:center;gap:8px}
+.fi-name{font-size:11px;color:var(--muted);width:140px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fi-bar-wrap{flex:1;height:5px;background:var(--surface2);border-radius:3px;overflow:hidden}
+.fi-bar{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--accent),var(--accent2))}
+.fi-val{font-size:11px;font-family:'DM Mono',monospace;color:var(--accent);width:34px;text-align:right}
+
+/* ── MODAL ── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:200;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(5px);opacity:0;pointer-events:none;transition:opacity .2s}
+.modal-overlay.open{opacity:1;pointer-events:all}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:20px;width:720px;max-width:96vw;max-height:92vh;overflow-y:auto;transform:scale(.96);transition:transform .2s}
+.modal-overlay.open .modal{transform:scale(1)}
+.modal-header{padding:22px 26px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;gap:14px;position:sticky;top:0;background:var(--surface);z-index:10;border-radius:20px 20px 0 0}
+.modal-emp-avatar{width:50px;height:50px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;flex-shrink:0}
+.modal-emp-name{font-size:19px;font-weight:700}
+.modal-emp-sub{font-size:12px;color:var(--muted);margin-top:3px}
+.modal-close{margin-left:auto;background:var(--surface2);border:1px solid var(--border);color:var(--muted);font-size:14px;cursor:pointer;padding:6px 10px;border-radius:8px;transition:all .15s;flex-shrink:0}
+.modal-close:hover{color:var(--text);border-color:var(--muted)}
+.modal-body{padding:22px 26px}
+.modal-tabs{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:20px}
+.modal-tab{padding:10px 16px;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;border:none;background:none;border-bottom:2px solid transparent;transition:all .2s;font-family:'Space Grotesk',sans-serif}
+.modal-tab:hover{color:var(--text)}
+.modal-tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.modal-tab-content{display:none}.modal-tab-content.active{display:block}
+.modal-section{margin-bottom:22px}
+.modal-section-title{font-size:11px;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);margin-bottom:10px;font-weight:700}
+
+/* Risk meter */
+.risk-meter{background:var(--surface2);border-radius:8px;height:12px;overflow:hidden;margin-bottom:6px}
+.risk-meter-fill{height:100%;border-radius:8px;transition:width 1s ease}
+.risk-meter-fill.critical{background:linear-gradient(90deg,var(--high),var(--critical))}
+.risk-meter-fill.high{background:linear-gradient(90deg,var(--warn),var(--high))}
+.risk-meter-fill.medium{background:linear-gradient(90deg,var(--success),var(--warn))}
+.risk-meter-fill.low{background:var(--success)}
+
+/* Explanation */
+.explanation-box{background:rgba(0,212,170,.05);border:1px solid rgba(0,212,170,.15);border-radius:10px;padding:14px;font-size:13px;line-height:1.65;color:var(--text);margin-bottom:12px}
+.reasons-list{display:flex;flex-direction:column;gap:8px}
+.reason-item{display:flex;gap:10px;align-items:flex-start;font-size:13px;padding:10px 12px;background:var(--surface2);border-radius:8px}
+.reason-num{width:22px;height:22px;border-radius:6px;background:rgba(255,77,109,.1);border:1px solid rgba(255,77,109,.2);color:var(--danger);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+
+/* Recommendations */
+.rec-list{display:flex;flex-direction:column;gap:10px}
+.rec-item{background:var(--surface2);border-radius:10px;padding:14px;border-left:3px solid}
+.rec-item.High{border-color:var(--danger)}.rec-item.Medium{border-color:var(--warn)}.rec-item.Low{border-color:var(--success)}
+.rec-header{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.rec-priority-badge{font-size:10px;text-transform:uppercase;letter-spacing:.5px;font-weight:700;padding:3px 8px;border-radius:20px}
+.High .rec-priority-badge{background:rgba(255,77,109,.1);color:var(--danger)}
+.Medium .rec-priority-badge{background:rgba(245,158,11,.1);color:var(--warn)}
+.Low .rec-priority-badge{background:rgba(52,211,153,.1);color:var(--success)}
+.rec-action{font-size:13px;font-weight:600}
+.rec-detail{font-size:12px;color:var(--muted);line-height:1.55;margin-top:4px}
+
+/* Feature contribution chart in modal */
+.contrib-chart-wrap{height:200px;position:relative;margin-top:8px}
+.contrib-legend{display:flex;gap:12px;margin-top:8px;font-size:11px;color:var(--muted)}
+
+/* Profile grid */
+.profile-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.profile-item{background:var(--surface2);border-radius:8px;padding:11px 13px}
+.profile-label{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:4px}
+.profile-value{font-size:14px;font-weight:600;font-family:'DM Mono',monospace}
+.profile-value.danger{color:var(--danger)}.profile-value.success{color:var(--success)}.profile-value.warn{color:var(--warn)}
+.sat-stars{display:flex;gap:2px}
+.star{font-size:13px}
+.star.filled{color:var(--accent)}.star.empty{color:var(--border)}
+
+/* ── MODEL COMPARISON TAB ── */
+.model-comp-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px}
+.model-card{background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:18px;position:relative;transition:all .2s}
+.model-card:hover{border-color:rgba(0,212,170,.2)}
+.model-card.current{border-color:rgba(0,212,170,.35);background:rgba(0,212,170,.03)}
+.model-card.current::before{content:'CURRENT';position:absolute;top:12px;right:12px;font-size:10px;font-weight:700;letter-spacing:.5px;color:var(--accent);background:rgba(0,212,170,.1);padding:3px 8px;border-radius:10px;border:1px solid rgba(0,212,170,.2)}
+.model-card-title{font-size:15px;font-weight:700;margin-bottom:4px}
+.model-card-sub{font-size:12px;color:var(--muted);margin-bottom:14px}
+.model-metrics{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.metric-box{background:var(--surface);border-radius:8px;padding:10px}
+.metric-lbl{font-size:10px;text-transform:uppercase;color:var(--muted);margin-bottom:3px;letter-spacing:.5px}
+.metric-val{font-size:18px;font-weight:700;font-family:'DM Mono',monospace;color:var(--accent)}
+.metric-val.green{color:var(--success)}.metric-val.red{color:var(--danger)}.metric-val.warn{color:var(--warn)}
+.comparison-bar-section{margin:20px 0}
+.comp-bar-row{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.comp-bar-label{font-size:12px;color:var(--muted);width:100px;flex-shrink:0}
+.comp-bars{flex:1;display:flex;flex-direction:column;gap:4px}
+.comp-bar{height:8px;border-radius:4px;transition:width .8s ease}
+.comp-bar.old{background:rgba(124,92,252,.6)}
+.comp-bar.new{background:var(--accent)}
+.comp-bar-vals{width:80px;font-size:12px;font-family:'DM Mono',monospace;color:var(--muted);text-align:right}
+.comp-legend{display:flex;gap:16px;margin-top:12px}
+.comp-legend-item{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
+.comp-legend-dot{width:12px;height:8px;border-radius:3px}
+.algo-list{display:flex;flex-direction:column;gap:8px}
+.algo-item{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surface2);border-radius:8px}
+.algo-name{font-size:13px;font-weight:600;flex:1}
+.algo-weight{font-size:12px;font-family:'DM Mono',monospace;color:var(--accent);width:30px;text-align:center}
+.algo-type{font-size:11px;color:var(--muted)}
+.algo-bar-wrap{width:80px;height:5px;background:var(--surface);border-radius:3px;overflow:hidden}
+.algo-bar{height:100%;background:linear-gradient(90deg,var(--accent2),var(--accent));border-radius:3px}
+
+/* ── MISC ── */
+.loading-overlay{display:none;position:fixed;inset:0;background:rgba(6,7,13,.88);z-index:150;align-items:center;justify-content:center;flex-direction:column;gap:16px;backdrop-filter:blur(5px)}
+.loading-overlay.active{display:flex}
+.loader{width:44px;height:44px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-text{font-size:14px;color:var(--muted)}
+.toast-container{position:fixed;bottom:22px;right:22px;z-index:300;display:flex;flex-direction:column;gap:8px}
+.toast{padding:11px 15px;border-radius:10px;font-size:13px;font-weight:500;display:flex;align-items:center;gap:8px;background:var(--surface2);border:1px solid var(--border);animation:toastIn .3s ease;min-width:260px;box-shadow:0 8px 24px rgba(0,0,0,.3)}
+.toast.success{border-color:rgba(52,211,153,.3)}.toast.error{border-color:rgba(255,77,109,.3);color:var(--danger)}
+@keyframes toastIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.empty-state{text-align:center;padding:56px 20px;display:flex;flex-direction:column;align-items:center;gap:14px}
+.empty-icon{font-size:44px;opacity:.35}
+.empty-title{font-size:17px;font-weight:600}
+.empty-sub{font-size:13px;color:var(--muted);max-width:340px;line-height:1.6}
+.divider{height:1px;background:var(--border);margin:20px 0}
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--muted)}
+</style>
+</head>
+<body>
+
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="loader"></div>
+  <div class="loading-text" id="loadingText">Running AI predictions…</div>
+</div>
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- SIDEBAR -->
+<nav class="sidebar">
+  <div class="sidebar-logo">
+    <div class="icon">🧠</div>
+    <div class="brand">Attrition<span>IQ</span></div>
+  </div>
+  <div class="nav-section">
+    <div class="nav-label">Navigation</div>
+    <div class="nav-item active" id="nav-dashboard" onclick="switchTab('dashboard')"><span class="nav-icon">📊</span> Dashboard</div>
+    <div class="nav-item" id="nav-predictions" onclick="switchTab('predictions')"><span class="nav-icon">🔮</span> Predictions</div>
+    <div class="nav-item" id="nav-explainability" onclick="switchTab('explainability')"><span class="nav-icon">🔍</span> Explainability</div>
+    <div class="nav-item" id="nav-recommendations" onclick="switchTab('recommendations')"><span class="nav-icon">💡</span> Recommendations</div>
+    <div class="nav-item" id="nav-model" onclick="switchTab('model')"><span class="nav-icon">🤖</span> Model Comparison</div>
+  </div>
+  <div class="sidebar-footer">
+    <div class="user-card">
+      <div class="user-avatar" id="userAvatar">A</div>
+      <div class="user-info">
+        <div class="name" id="userName">Admin</div>
+        <div class="role" id="userRole">Administrator</div>
+      </div>
+      <button class="btn-logout" onclick="logout()" title="Logout">⏻</button>
+    </div>
+  </div>
+</nav>
+
+<!-- MAIN -->
+<div class="main">
+  <header class="topbar">
+    <div>
+      <h1>HR Attrition Intelligence</h1>
+      <div class="subtitle">Hybrid Ensemble · 5 Models · 49 Features</div>
+    </div>
+    <div class="topbar-right">
+      <div class="status-pill"><div class="status-dot"></div><div class="status-text">Model Active</div></div>
+      <div class="accuracy-badge" id="accuracyBadge">Loading…</div>
+    </div>
+  </header>
+
+  <!-- ════════════════════════════ TAB: DASHBOARD ════════════════════════════ -->
+  <div id="tab-dashboard" class="tab-content active">
+    <div class="content">
+
+      <!-- Upload -->
+      <div class="section-title">📤 Data Upload</div>
+      <div class="upload-zone" id="uploadZone" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)">
+        <div class="upload-icon">📁</div>
+        <div class="upload-title">Drop employee CSV here or browse files</div>
+        <div class="upload-sub">IBM HR Analytics format · Max 10,000 employees · Instant AI predictions</div>
+        <div class="upload-actions">
+          <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()">⬆ Upload CSV</button>
+          <button class="btn btn-outline" onclick="downloadSample()">⬇ Sample CSV</button>
+        </div>
+        <div class="upload-progress" id="uploadProgress"><div class="progress-bar" id="progressBar"></div></div>
+        <input type="file" id="fileInput" accept=".csv" onchange="handleFileSelect(event)">
+      </div>
+
+      <!-- KPIs -->
+      <div id="kpiSection" style="display:none;margin-top:24px">
+        <div class="section-title">📊 Key Performance Indicators</div>
+        <div class="kpi-grid">
+          <div class="kpi-card"><div class="kpi-label">Total Employees</div><div class="kpi-value" id="kpiTotal">—</div><div class="kpi-sub">Analyzed in batch</div></div>
+          <div class="kpi-card danger"><div class="kpi-label">At Risk</div><div class="kpi-value danger" id="kpiAtRisk">—</div><div class="kpi-sub" id="kpiAtRiskPct">—</div></div>
+          <div class="kpi-card success"><div class="kpi-label">Likely to Stay</div><div class="kpi-value success" id="kpiStay">—</div><div class="kpi-sub">Stable employees</div></div>
+          <div class="kpi-card warn"><div class="kpi-label">Avg Risk Score</div><div class="kpi-value warn" id="kpiAvgRisk">—</div><div class="kpi-sub">Team average</div></div>
+          <div class="kpi-card info"><div class="kpi-label">Model Accuracy</div><div class="kpi-value info" id="kpiAccuracy">—</div><div class="kpi-sub">Hybrid ensemble</div></div>
+        </div>
+      </div>
+
+      <!-- Charts -->
+      <div id="chartsSection" style="display:none">
+        <div class="section-title">📈 Analytics Overview</div>
+        <div class="charts-grid charts-row2" style="margin-bottom:18px">
+          <div class="chart-card" style="grid-column:span 2">
+            <div class="chart-title">Department Attrition Analysis</div>
+            <div class="chart-sub">At-risk vs. stable employees by department</div>
+            <div class="chart-wrap tall"><canvas id="deptChart"></canvas></div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-title">Risk Level Distribution</div>
+            <div class="chart-sub">Employees by attrition risk tier</div>
+            <div class="risk-badges" id="riskBadges"></div>
+            <div class="chart-wrap" style="height:150px"><canvas id="riskChart"></canvas></div>
+          </div>
+        </div>
+        <div class="charts-grid charts-row3">
+          <div class="chart-card">
+            <div class="chart-title">Top Job Roles by Risk Rate</div>
+            <div class="chart-sub">Roles ranked by attrition probability</div>
+            <div class="chart-wrap tall"><canvas id="roleChart"></canvas></div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-title">Top Feature Importances</div>
+            <div class="chart-sub">Most predictive signals in the model</div>
+            <div class="fi-list" id="featureList"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="empty-state" id="emptyState">
+        <div class="empty-icon">🎯</div>
+        <div class="empty-title">Ready for Analysis</div>
+        <div class="empty-sub">Upload a CSV file with employee data to run attrition predictions, see AI explanations, and get HR recommendations.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════ TAB: PREDICTIONS ═══════════════════════════ -->
+  <div id="tab-predictions" class="tab-content">
+    <div class="content">
+      <div id="predictionsEmpty" class="empty-state">
+        <div class="empty-icon">🔮</div>
+        <div class="empty-title">No Predictions Yet</div>
+        <div class="empty-sub">Upload a CSV on the Dashboard tab to generate predictions.</div>
+        <button class="btn btn-primary" onclick="switchTab('dashboard')">Go to Upload</button>
+      </div>
+      <div id="predictionsContent" style="display:none">
+        <div class="table-section">
+          <div class="table-header">
+            <div class="table-title">🔮 Employee Attrition Predictions</div>
+            <div class="table-actions">
+              <input type="text" class="search-input" placeholder="Search…" oninput="filterTable(this.value)" id="searchInput">
+              <select class="filter-select" onchange="filterByRisk(this.value)" id="riskFilter">
+                <option value="">All Risk Levels</option>
+                <option value="Critical">🔴 Critical</option>
+                <option value="High">🟠 High</option>
+                <option value="Medium">🟡 Medium</option>
+                <option value="Low">🟢 Low</option>
+              </select>
+              <button class="btn btn-outline btn-sm" onclick="exportCSV()">⬇ Export</button>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table id="predictionsTable">
+              <thead>
+                <tr>
+                  <th onclick="sortTable('employee_id')">Employee ↕</th>
+                  <th onclick="sortTable('department')">Dept ↕</th>
+                  <th>Role</th>
+                  <th onclick="sortTable('age')">Age ↕</th>
+                  <th onclick="sortTable('monthly_income')">Income ↕</th>
+                  <th onclick="sortTable('years_at_company')">Tenure ↕</th>
+                  <th>OT</th>
+                  <th onclick="sortTable('attrition_probability')">Risk Score ↕</th>
+                  <th>Level</th>
+                  <th>Prediction</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="tableBody"></tbody>
+            </table>
+          </div>
+          <div class="table-footer">
+            <div class="table-count" id="tableCount">0 records</div>
+            <div class="pagination" id="pagination"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════ TAB: EXPLAINABILITY ════════════════════════ -->
+  <div id="tab-explainability" class="tab-content">
+    <div class="content">
+      <div id="explainEmpty" class="empty-state">
+        <div class="empty-icon">🔍</div>
+        <div class="empty-title">No Data to Explain</div>
+        <div class="empty-sub">Upload a CSV first to explore AI explanations for each employee's risk prediction.</div>
+        <button class="btn btn-primary" onclick="switchTab('dashboard')">Go to Upload</button>
+      </div>
+      <div id="explainContent" style="display:none">
+        <div class="section-title">🔍 AI Explainability — Why is Each Employee At Risk?</div>
+        <div style="display:grid;grid-template-columns:320px 1fr;gap:18px">
+          <!-- Employee list -->
+          <div class="table-section" style="height:fit-content;max-height:700px;overflow-y:auto">
+            <div class="table-header" style="padding:12px 14px">
+              <div class="table-title" style="font-size:13px">Select Employee</div>
+            </div>
+            <div style="padding:8px">
+              <input type="text" class="search-input" style="width:100%;margin-bottom:8px" placeholder="Search employees…" oninput="filterExplainList(this.value)" id="explainSearch">
+              <div id="explainList"></div>
+            </div>
+          </div>
+          <!-- Explanation detail panel -->
+          <div id="explainPanel">
+            <div class="empty-state" style="padding:40px 20px">
+              <div class="empty-icon">👈</div>
+              <div class="empty-title">Select an Employee</div>
+              <div class="empty-sub">Click any employee on the left to see the AI explanation for their attrition risk.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════ TAB: RECOMMENDATIONS ════════════════════════ -->
+  <div id="tab-recommendations" class="tab-content">
+    <div class="content">
+      <div id="recsEmpty" class="empty-state">
+        <div class="empty-icon">💡</div>
+        <div class="empty-title">No Recommendations Yet</div>
+        <div class="empty-sub">Upload employee data to generate priority HR recommendations.</div>
+        <button class="btn btn-primary" onclick="switchTab('dashboard')">Go to Upload</button>
+      </div>
+      <div id="recsContent" style="display:none">
+        <div class="section-title">💡 HR Action Recommendations</div>
+        <!-- Summary counts -->
+        <div style="display:flex;gap:12px;margin-bottom:20px" id="recSummaryBadges"></div>
+        <!-- Tabs by priority -->
+        <div class="tab-bar" style="margin-bottom:0;padding:0;border-radius:12px 12px 0 0;overflow:hidden">
+          <button class="tab-btn active" id="rec-tab-high" onclick="switchRecTab('High')">🔴 High Priority</button>
+          <button class="tab-btn" id="rec-tab-medium" onclick="switchRecTab('Medium')">🟡 Medium Priority</button>
+          <button class="tab-btn" id="rec-tab-low" onclick="switchRecTab('Low')">🟢 Low Priority</button>
+          <button class="tab-btn" id="rec-tab-all" onclick="switchRecTab('All')">📋 All Actions</button>
+        </div>
+        <div id="recsListWrap" style="background:var(--surface);border:1px solid var(--border);border-top:none;border-radius:0 0 12px 12px;padding:18px">
+          <div id="recsList"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════ TAB: MODEL COMPARISON ════════════════════════ -->
+  <div id="tab-model" class="tab-content">
+    <div class="content">
+      <div class="section-title">🤖 Model Comparison — Old vs New Ensemble</div>
+
+      <!-- Cards -->
+      <div class="model-comp-grid">
+        <div class="model-card">
+          <div class="model-card-title">Baseline Model</div>
+          <div class="model-card-sub">Single Random Forest · No feature engineering</div>
+          <div class="model-metrics">
+            <div class="metric-box"><div class="metric-lbl">Accuracy</div><div class="metric-val warn">71.4%</div></div>
+            <div class="metric-box"><div class="metric-lbl">ROC-AUC</div><div class="metric-val warn">0.741</div></div>
+            <div class="metric-box"><div class="metric-lbl">Precision</div><div class="metric-val warn">0.68</div></div>
+            <div class="metric-box"><div class="metric-lbl">Recall</div><div class="metric-val warn">0.59</div></div>
+          </div>
+        </div>
+        <div class="model-card current">
+          <div class="model-card-title">Hybrid Ensemble v2</div>
+          <div class="model-card-sub">5 Models · 18 Engineered Features · Weighted Voting</div>
+          <div class="model-metrics">
+            <div class="metric-box"><div class="metric-lbl">Accuracy</div><div class="metric-val green" id="compAccuracy">84.0%</div></div>
+            <div class="metric-box"><div class="metric-lbl">ROC-AUC</div><div class="metric-val green" id="compAUC">0.919</div></div>
+            <div class="metric-box"><div class="metric-lbl">Precision</div><div class="metric-val green">0.85</div></div>
+            <div class="metric-box"><div class="metric-lbl">Recall</div><div class="metric-val green">0.91</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Comparison bars -->
+      <div class="chart-card" style="margin-bottom:18px">
+        <div class="chart-title">Head-to-Head Performance Comparison</div>
+        <div class="chart-sub">New hybrid ensemble outperforms the baseline across all metrics</div>
+        <div class="comparison-bar-section" id="compBars"></div>
+        <div class="comp-legend">
+          <div class="comp-legend-item"><div class="comp-legend-dot" style="background:rgba(124,92,252,.6)"></div>Baseline (Single RF)</div>
+          <div class="comp-legend-item"><div class="comp-legend-dot" style="background:var(--accent)"></div>Hybrid Ensemble v2</div>
+        </div>
+      </div>
+
+      <!-- Model composition -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
+        <div class="chart-card">
+          <div class="chart-title">Ensemble Architecture</div>
+          <div class="chart-sub">Component models and their voting weights</div>
+          <div class="algo-list" id="algoList"></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">Accuracy Improvement by Training Size</div>
+          <div class="chart-sub">Learning curve: new vs old model</div>
+          <div class="chart-wrap"><canvas id="learningCurveChart"></canvas></div>
+        </div>
+      </div>
+
+      <!-- Feature engineering impact -->
+      <div class="chart-card" style="margin-top:18px">
+        <div class="chart-title">Feature Engineering Impact</div>
+        <div class="chart-sub">Accuracy improvement from each category of engineered features</div>
+        <div class="chart-wrap"><canvas id="featureImpactChart"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /main -->
+
+<!-- ══════════════════════════════ EMPLOYEE MODAL ════════════════════════════ -->
+<div class="modal-overlay" id="empModal" onclick="closeEmpModal(event)">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-emp-avatar" id="modalAvatar" style="background:linear-gradient(135deg,#7c5cfc,#5b3fd4)">E</div>
+      <div style="flex:1;min-width:0">
+        <div class="modal-emp-name" id="modalName">—</div>
+        <div class="modal-emp-sub" id="modalSub">—</div>
+      </div>
+      <div id="modalHeaderBadge" class="badge" style="margin-right:8px">—</div>
+      <button class="modal-close" onclick="document.getElementById('empModal').classList.remove('open')">✕ Close</button>
+    </div>
+    <div class="modal-body">
+      <!-- Risk bar -->
+      <div style="display:flex;align-items:center;gap:14px;padding:14px 0 18px;border-bottom:1px solid var(--border);margin-bottom:18px">
+        <div style="flex:1">
+          <div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:7px">Attrition Probability</div>
+          <div class="risk-meter"><div class="risk-meter-fill" id="modalRiskFill" style="width:0%"></div></div>
+        </div>
+        <div style="text-align:center;flex-shrink:0">
+          <div style="font-size:32px;font-weight:700;font-family:'DM Mono',monospace" id="modalRiskPct">0%</div>
+          <div style="font-size:11px;color:var(--muted)">Risk Score</div>
+        </div>
+      </div>
+
+      <!-- Tabs inside modal -->
+      <div class="modal-tabs">
+        <button class="modal-tab active" onclick="switchModalTab(0)" id="mtab0">🔍 Explanation</button>
+        <button class="modal-tab" onclick="switchModalTab(1)" id="mtab1">📊 Risk Factors</button>
+        <button class="modal-tab" onclick="switchModalTab(2)" id="mtab2">💡 Recommendations</button>
+        <button class="modal-tab" onclick="switchModalTab(3)" id="mtab3">👤 Profile</button>
+      </div>
+
+      <!-- Tab 0: Explanation -->
+      <div class="modal-tab-content active" id="mtc0">
+        <div class="modal-section">
+          <div class="modal-section-title">AI Generated Explanation</div>
+          <div class="explanation-box" id="modalExplanation">—</div>
+        </div>
+        <div class="modal-section">
+          <div class="modal-section-title">Key Risk Factors Identified</div>
+          <div class="reasons-list" id="modalReasons"></div>
+        </div>
+      </div>
+
+      <!-- Tab 1: Risk Factor Chart -->
+      <div class="modal-tab-content" id="mtc1">
+        <div class="modal-section">
+          <div class="modal-section-title">Feature Contribution to Attrition Risk</div>
+          <div class="contrib-chart-wrap"><canvas id="contribChart"></canvas></div>
+          <div class="contrib-legend">
+            <span>Higher bar = stronger risk signal for this employee</span>
+          </div>
+        </div>
+        <div class="modal-section" style="margin-top:8px">
+          <div class="modal-section-title">Satisfaction Breakdown</div>
+          <div id="satBreakdown" style="display:grid;grid-template-columns:1fr 1fr;gap:10px"></div>
+        </div>
+      </div>
+
+      <!-- Tab 2: Recommendations -->
+      <div class="modal-tab-content" id="mtc2">
+        <div class="modal-section">
+          <div class="modal-section-title">Priority HR Actions</div>
+          <div class="rec-list" id="modalRecs"></div>
+        </div>
+      </div>
+
+      <!-- Tab 3: Full Profile -->
+      <div class="modal-tab-content" id="mtc3">
+        <div class="modal-section">
+          <div class="modal-section-title">Personal & Employment Details</div>
+          <div class="profile-grid" id="modalProfile"></div>
+        </div>
+        <div class="modal-section" style="margin-top:14px">
+          <div class="modal-section-title">Career History</div>
+          <div class="profile-grid" id="modalCareer"></div>
+        </div>
+        <div class="modal-section" style="margin-top:14px">
+          <div class="modal-section-title">Compensation & Benefits</div>
+          <div class="profile-grid" id="modalComp"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════════════════════════════════════
+let allPredictions = [];
+let filteredPredictions = [];
+let currentPage = 1;
+const PAGE_SIZE = 20;
+let sortKey = 'attrition_probability', sortAsc = false;
+let charts = {};
+let contribChartInst = null;
+let activeRecTab = 'High';
+
+// ══════════════════════════════════════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════════════════════════════════════
+window.onload = async () => {
+  const user = sessionStorage.getItem('user') || 'Admin';
+  const role = sessionStorage.getItem('role') || 'Administrator';
+  document.getElementById('userName').textContent = user;
+  document.getElementById('userRole').textContent = role;
+  document.getElementById('userAvatar').textContent = user[0].toUpperCase();
+  await loadModelStats();
+  renderModelComparisonTab();
+};
+
+async function loadModelStats() {
+  try {
+    const res = await fetch('/api/model-stats');
+    const d = await res.json();
+    document.getElementById('accuracyBadge').textContent = `${d.accuracy}% Accuracy · AUC ${d.auc}`;
+    document.getElementById('compAccuracy').textContent = d.accuracy + '%';
+    document.getElementById('compAUC').textContent = d.auc;
+    window._modelStats = d;
+    renderFeatureImportanceSidebar(d.top_features || []);
+  } catch(e) {
+    document.getElementById('accuracyBadge').textContent = 'Model Active';
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// TAB NAVIGATION
+// ══════════════════════════════════════════════════════════════════════════════
+function switchTab(name) {
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  document.getElementById('nav-' + name).classList.add('active');
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// UPLOAD
+// ══════════════════════════════════════════════════════════════════════════════
+function handleDragOver(e) { e.preventDefault(); document.getElementById('uploadZone').classList.add('drag-over'); }
+function handleDragLeave(e) { document.getElementById('uploadZone').classList.remove('drag-over'); }
+function handleDrop(e) {
+  e.preventDefault(); document.getElementById('uploadZone').classList.remove('drag-over');
+  const file = e.dataTransfer.files[0]; if (file) processFile(file);
+}
+function handleFileSelect(e) { const file = e.target.files[0]; if (file) processFile(file); }
+
+async function downloadSample() {
+  try {
+    const res = await fetch('/api/sample-data');
+    const blob = await res.blob();
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+    a.download = 'sample_employees.csv'; a.click();
+    showToast('Sample CSV downloaded!', 'success');
+  } catch(e) { showToast('Could not download sample', 'error'); }
+}
+
+async function processFile(file) {
+  if (!file.name.endsWith('.csv')) { showToast('Please upload a CSV file', 'error'); return; }
+  showLoading('Running hybrid ensemble predictions…');
+  const prog = document.getElementById('uploadProgress');
+  const bar = document.getElementById('progressBar');
+  prog.style.display = 'block'; bar.style.width = '0%';
+  let p = 0;
+  const iv = setInterval(() => { p = Math.min(p + Math.random()*12, 85); bar.style.width = p + '%'; }, 250);
+
+  const formData = new FormData();
+  formData.append('file', file);
+  try {
+    const res = await fetch('/api/predict/upload', { method: 'POST', body: formData });
+    const data = await res.json();
+    clearInterval(iv); bar.style.width = '100%';
+    if (data.error) { showToast('Error: ' + data.error, 'error'); hideLoading(); return; }
+    allPredictions = data.predictions;
+    filteredPredictions = [...allPredictions];
+    renderAllTabs(data);
+    showToast(`✓ Analyzed ${data.summary.total_employees} employees`, 'success');
+  } catch(e) {
+    clearInterval(iv);
+    showToast('Prediction failed. Check server is running.', 'error');
+  }
+  setTimeout(() => { prog.style.display = 'none'; bar.style.width = '0%'; }, 800);
+  hideLoading();
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// RENDER ALL TABS
+// ══════════════════════════════════════════════════════════════════════════════
+function renderAllTabs(data) {
+  renderDashboardTab(data);
+  renderPredictionsTab();
+  renderExplainabilityTab();
+  renderRecommendationsTab();
+}
+
+// ── DASHBOARD TAB ─────────────────────────────────────────────────────────────
+function renderDashboardTab(data) {
+  const s = data.summary;
+  document.getElementById('emptyState').style.display = 'none';
+  document.getElementById('kpiSection').style.display = 'block';
+  document.getElementById('chartsSection').style.display = 'block';
+
+  animateCount('kpiTotal', s.total_employees);
+  animateCount('kpiAtRisk', s.at_risk);
+  document.getElementById('kpiAtRiskPct').textContent = `${s.attrition_rate}% of workforce`;
+  animateCount('kpiStay', s.likely_stay);
+  document.getElementById('kpiAvgRisk').textContent = s.avg_risk_score.toFixed(1) + '%';
+  document.getElementById('kpiAccuracy').textContent = data.model_accuracy + '%';
+
+  const rd = data.risk_distribution;
+  document.getElementById('riskBadges').innerHTML = `
+    <div class="risk-badge critical"><div class="dot"></div>${rd.Critical} Critical</div>
+    <div class="risk-badge high"><div class="dot"></div>${rd.High} High</div>
+    <div class="risk-badge medium"><div class="dot"></div>${rd.Medium} Medium</div>
+    <div class="risk-badge low"><div class="dot"></div>${rd.Low} Low</div>`;
+
+  renderDashboardCharts(data);
+}
+
+function renderDashboardCharts(data) {
+  Chart.defaults.color = '#8b949e';
+  Chart.defaults.font.family = 'Space Grotesk';
+
+  const depts = data.department_analysis;
+  if (charts.dept) charts.dept.destroy();
+  charts.dept = new Chart(document.getElementById('deptChart'), {
+    type: 'bar',
+    data: {
+      labels: depts.map(d => d.department),
+      datasets: [
+        { label: 'At Risk', data: depts.map(d => d.at_risk), backgroundColor: 'rgba(255,77,109,.7)', borderRadius: 6 },
+        { label: 'Likely Stay', data: depts.map(d => d.stay), backgroundColor: 'rgba(0,212,170,.5)', borderRadius: 6 },
+      ]
+    },
+    options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{labels:{color:'#8b949e',font:{size:12}}}},
+      scales:{x:{stacked:true,grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#8b949e'}},y:{stacked:true,grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#8b949e'}}} }
+  });
+
+  const rd = data.risk_distribution;
+  if (charts.risk) charts.risk.destroy();
+  charts.risk = new Chart(document.getElementById('riskChart'), {
+    type: 'doughnut',
+    data: { labels:['Critical','High','Medium','Low'],
+      datasets:[{data:[rd.Critical,rd.High,rd.Medium,rd.Low],backgroundColor:['rgba(255,77,109,.8)','rgba(251,146,60,.8)','rgba(245,158,11,.8)','rgba(52,211,153,.8)'],borderWidth:0,hoverOffset:5}] },
+    options:{responsive:true,maintainAspectRatio:false,cutout:'62%',plugins:{legend:{position:'bottom',labels:{color:'#8b949e',font:{size:11},padding:8}}}}
+  });
+
+  const roles = data.role_analysis.slice(0,8);
+  if (charts.role) charts.role.destroy();
+  charts.role = new Chart(document.getElementById('roleChart'), {
+    type: 'bar',
+    data: {
+      labels: roles.map(r => r.role),
+      datasets:[{label:'Attrition Rate %', data:roles.map(r=>r.risk_pct),
+        backgroundColor:roles.map(r=>r.risk_pct>60?'rgba(255,77,109,.7)':r.risk_pct>40?'rgba(251,146,60,.7)':'rgba(52,211,153,.7)'), borderRadius:5}]
+    },
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{x:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#8b949e',callback:v=>v+'%'},max:100},y:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#8b949e',font:{size:11}}}}}
+  });
+}
+
+function renderFeatureImportanceSidebar(features) {
+  const top = features.slice(0,10);
+  const max = top[0]?.importance || 1;
+  document.getElementById('featureList').innerHTML = top.map(f => `
+    <div class="fi-item">
+      <div class="fi-name" title="${f.name}">${f.name}</div>
+      <div class="fi-bar-wrap"><div class="fi-bar" style="width:${(f.importance/max)*100}%"></div></div>
+      <div class="fi-val">${f.importance.toFixed(1)}%</div>
+    </div>`).join('');
+}
+
+// ── PREDICTIONS TAB ──────────────────────────────────────────────────────────
+function renderPredictionsTab() {
+  document.getElementById('predictionsEmpty').style.display = 'none';
+  document.getElementById('predictionsContent').style.display = 'block';
+  currentPage = 1;
+  renderTablePage();
+  renderPagination();
+}
+
+function renderTablePage() {
+  const start = (currentPage-1)*PAGE_SIZE;
+  const page = filteredPredictions.slice(start, start+PAGE_SIZE);
+  document.getElementById('tableCount').textContent = `${filteredPredictions.length.toLocaleString()} records`;
+  document.getElementById('tableBody').innerHTML = page.map(r => `
+    <tr onclick="showEmployee('${r.employee_id}')">
+      <td><span style="font-weight:600">${r.name||'Emp '+r.employee_id}</span><br><span style="font-size:11px;color:var(--muted)">#${r.employee_id}</span></td>
+      <td>${r.department}</td>
+      <td style="color:var(--muted);font-size:12px">${r.job_role}</td>
+      <td>${r.age}</td>
+      <td style="font-family:'DM Mono',monospace">$${Number(r.monthly_income).toLocaleString()}</td>
+      <td>${r.years_at_company}y</td>
+      <td><span style="color:${r.overtime==='Yes'?'var(--danger)':'var(--muted)'};font-size:12px;font-weight:600">${r.overtime}</span></td>
+      <td>
+        <div style="display:flex;align-items:center;gap:7px">
+          <div class="risk-bar"><div class="risk-bar-fill" style="width:${r.attrition_probability}%;background:${getRiskColor(r.risk_label)}"></div></div>
+          <span style="font-family:'DM Mono',monospace;font-size:12px">${r.attrition_probability}%</span>
+        </div>
+      </td>
+      <td><span class="badge badge-${r.risk_label.toLowerCase()}">${r.risk_label}</span></td>
+      <td><span style="font-size:12px;font-weight:600;color:${r.prediction==='At Risk'?'var(--danger)':'var(--success)'}">${r.prediction}</span></td>
+      <td><button class="btn btn-outline btn-sm" onclick="event.stopPropagation();showEmployee('${r.employee_id}')">Details</button></td>
+    </tr>`).join('');
+}
+
+function renderPagination() {
+  const total = Math.ceil(filteredPredictions.length / PAGE_SIZE);
+  if (total <= 1) { document.getElementById('pagination').innerHTML = ''; return; }
+  let html = '';
+  if (currentPage > 1) html += `<button class="page-btn" onclick="goPage(${currentPage-1})">‹</button>`;
+  const s = Math.max(1,currentPage-2), e = Math.min(total,currentPage+2);
+  for (let i=s;i<=e;i++) html += `<button class="page-btn${i===currentPage?' active':''}" onclick="goPage(${i})">${i}</button>`;
+  if (currentPage < total) html += `<button class="page-btn" onclick="goPage(${currentPage+1})">›</button>`;
+  document.getElementById('pagination').innerHTML = html;
+}
+function goPage(p) { currentPage = p; renderTablePage(); renderPagination(); }
+
+function sortTable(key) {
+  if (sortKey === key) sortAsc = !sortAsc; else { sortKey = key; sortAsc = false; }
+  filteredPredictions.sort((a,b) => {
+    const av = a[key], bv = b[key];
+    if (typeof av === 'number') return sortAsc ? av-bv : bv-av;
+    return sortAsc ? String(av).localeCompare(String(bv)) : String(bv).localeCompare(String(av));
+  });
+  currentPage = 1; renderTablePage(); renderPagination();
+}
+
+function filterTable(q) {
+  const risk = document.getElementById('riskFilter').value;
+  q = q.toLowerCase();
+  filteredPredictions = allPredictions.filter(r =>
+    (!q || (r.name||'').toLowerCase().includes(q) || String(r.employee_id).includes(q) || r.department.toLowerCase().includes(q) || r.job_role.toLowerCase().includes(q)) &&
+    (!risk || r.risk_label === risk));
+  currentPage = 1; renderTablePage(); renderPagination();
+}
+function filterByRisk(v) { filterTable(document.getElementById('searchInput').value); }
+
+// ── EXPLAINABILITY TAB ───────────────────────────────────────────────────────
+function renderExplainabilityTab() {
+  document.getElementById('explainEmpty').style.display = 'none';
+  document.getElementById('explainContent').style.display = 'block';
+  renderExplainList(allPredictions);
+}
+
+function renderExplainList(list) {
+  document.getElementById('explainList').innerHTML = list.slice(0,200).map(r => `
+    <div onclick="showExplainDetail('${r.employee_id}')" style="padding:10px 10px;border-radius:8px;cursor:pointer;transition:background .12s;margin-bottom:3px;display:flex;align-items:center;gap:10px;border:1px solid transparent" class="explain-item" id="explain-item-${r.employee_id}">
+      <div style="width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,${getAvatarColor(r.risk_label)});display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;flex-shrink:0;color:#0a0f1a">${(r.name||'E')[0].toUpperCase()}</div>
+      <div style="min-width:0;flex:1">
+        <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${r.name||'Employee '+r.employee_id}</div>
+        <div style="font-size:11px;color:var(--muted)">${r.job_role}</div>
+      </div>
+      <div style="text-align:right;flex-shrink:0">
+        <div style="font-size:12px;font-family:'DM Mono',monospace;font-weight:600;color:${getRiskColor(r.risk_label)}">${r.attrition_probability}%</div>
+        <span class="badge badge-${r.risk_label.toLowerCase()}" style="font-size:10px;padding:2px 6px">${r.risk_label}</span>
+      </div>
+    </div>`).join('');
+}
+
+function filterExplainList(q) {
+  q = q.toLowerCase();
+  const filtered = allPredictions.filter(r =>
+    (r.name||'').toLowerCase().includes(q) || String(r.employee_id).includes(q) || r.job_role.toLowerCase().includes(q));
+  renderExplainList(filtered);
+}
+
+function showExplainDetail(empId) {
+  const r = allPredictions.find(x => String(x.employee_id) === String(empId));
+  if (!r) return;
+  // Highlight selected
+  document.querySelectorAll('.explain-item').forEach(el => { el.style.background=''; el.style.borderColor='transparent'; });
+  const item = document.getElementById('explain-item-'+empId);
+  if (item) { item.style.background='rgba(0,212,170,.06)'; item.style.borderColor='rgba(0,212,170,.2)'; }
+
+  const fs = r.feature_scores || {};
+  const fsKeys = Object.keys(fs), fsVals = Object.values(fs);
+
+  document.getElementById('explainPanel').innerHTML = `
+    <div class="chart-card" style="margin-bottom:14px">
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px">
+        <div style="width:52px;height:52px;border-radius:14px;background:linear-gradient(135deg,${getAvatarColor(r.risk_label)});display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;flex-shrink:0;color:#0a0f1a">${(r.name||'E')[0].toUpperCase()}</div>
+        <div>
+          <div style="font-size:18px;font-weight:700">${r.name||'Employee '+r.employee_id}</div>
+          <div style="font-size:13px;color:var(--muted)">${r.job_role} · ${r.department}</div>
+        </div>
+        <div style="margin-left:auto;text-align:right">
+          <div style="font-size:28px;font-weight:700;font-family:'DM Mono',monospace;color:${getRiskColor(r.risk_label)}">${r.attrition_probability}%</div>
+          <span class="badge badge-${r.risk_label.toLowerCase()}">${r.risk_label} Risk</span>
+        </div>
+      </div>
+      <div class="risk-meter" style="margin-bottom:4px"><div class="risk-meter-fill ${r.risk_label.toLowerCase()}" style="width:${r.attrition_probability}%"></div></div>
+    </div>
+
+    <div class="chart-card" style="margin-bottom:14px">
+      <div class="chart-title">AI Explanation</div>
+      <div class="explanation-box" style="margin-top:10px">${r.explanation}</div>
+      <div class="modal-section-title" style="margin-top:14px">Risk Factors Detected</div>
+      <div class="reasons-list">
+        ${(r.reasons||[]).map((reason,i)=>`
+          <div class="reason-item">
+            <div class="reason-num">${i+1}</div>
+            <div>${reason}</div>
+          </div>`).join('')}
+      </div>
+    </div>
+
+    <div class="chart-card" style="margin-bottom:14px">
+      <div class="chart-title">Feature Contribution Analysis</div>
+      <div class="chart-sub">Strength of each risk factor for this employee</div>
+      <div style="position:relative;height:200px;margin-top:10px">
+        <canvas id="explainBarChart_${empId}"></canvas>
+      </div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-title">Satisfaction Scores</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px">
+        ${renderSatItem('Job Satisfaction', r.job_satisfaction)}
+        ${renderSatItem('Env Satisfaction', r.env_satisfaction)}
+        ${renderSatItem('Work-Life Balance', r.work_life_balance)}
+        ${renderSatItem('Relationship Sat.', r.relationship_satisfaction)}
+        ${renderSatItem('Job Involvement', r.job_involvement)}
+      </div>
+    </div>`;
+
+  // Render feature chart
+  setTimeout(() => {
+    const ctx = document.getElementById('explainBarChart_'+empId);
+    if (!ctx) return;
+    new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: fsKeys,
+        datasets: [{
+          label: 'Risk Contribution %',
+          data: fsVals,
+          backgroundColor: fsVals.map(v => v>70?'rgba(255,77,109,.8)':v>40?'rgba(251,146,60,.8)':'rgba(52,211,153,.7)'),
+          borderRadius: 5
+        }]
+      },
+      options: {
+        responsive:true, maintainAspectRatio:false,
+        plugins:{legend:{display:false}},
+        scales:{
+          x:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#8b949e',font:{size:11}}},
+          y:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#8b949e',callback:v=>v+'%'},max:100,min:0}
+        }
+      }
+    });
+  }, 50);
+}
+
+function renderSatItem(label, score) {
+  const s = score||0;
+  const stars = Array(4).fill(0).map((_,i)=>`<span class="star ${i<s?'filled':'empty'}">★</span>`).join('');
+  const color = s<=2?'var(--danger)':s===3?'var(--warn)':'var(--success)';
+  return `<div class="profile-item"><div class="profile-label">${label}</div><div style="display:flex;align-items:center;gap:6px"><div class="sat-stars">${stars}</div><span style="font-size:13px;font-weight:700;color:${color}">${s}/4</span></div></div>`;
+}
+
+// ── RECOMMENDATIONS TAB ──────────────────────────────────────────────────────
+function renderRecommendationsTab() {
+  document.getElementById('recsEmpty').style.display = 'none';
+  document.getElementById('recsContent').style.display = 'block';
+
+  // Aggregate all recommendations from at-risk employees
+  const allRecs = {};
+  allPredictions.filter(r => r.prediction === 'At Risk').forEach(r => {
+    (r.recommendations||[]).forEach(rec => {
+      const key = rec.action;
+      if (!allRecs[key]) allRecs[key] = { ...rec, employees: [], count: 0 };
+      allRecs[key].employees.push(r.name || 'Emp '+r.employee_id);
+      allRecs[key].count++;
+    });
+  });
+  const recList = Object.values(allRecs).sort((a,b) => b.count - a.count);
+  window._allRecs = recList;
+
+  const high = recList.filter(r=>r.priority==='High').length;
+  const med  = recList.filter(r=>r.priority==='Medium').length;
+  const low  = recList.filter(r=>r.priority==='Low').length;
+
+  document.getElementById('recSummaryBadges').innerHTML = `
+    <div class="risk-badge critical"><div class="dot"></div>${high} High Priority Actions</div>
+    <div class="risk-badge medium"><div class="dot"></div>${med} Medium Priority Actions</div>
+    <div class="risk-badge low"><div class="dot"></div>${low} Low Priority Actions</div>
+    <div class="risk-badge" style="background:rgba(56,189,248,.08);border-color:rgba(56,189,248,.2);color:var(--info)"><div class="dot" style="background:var(--info)"></div>${allPredictions.filter(r=>r.prediction==='At Risk').length} Employees Need Attention</div>`;
+
+  switchRecTab('High');
+}
+
+function switchRecTab(priority) {
+  activeRecTab = priority;
+  ['High','Medium','Low','All'].forEach(p => {
+    const btn = document.getElementById('rec-tab-'+p.toLowerCase());
+    if (btn) btn.classList.toggle('active', p === priority);
+  });
+  const recs = priority === 'All' ? window._allRecs : (window._allRecs||[]).filter(r=>r.priority===priority);
+  if (!recs || recs.length === 0) {
+    document.getElementById('recsList').innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)">No recommendations for this priority level.</div>';
+    return;
+  }
+  document.getElementById('recsList').innerHTML = recs.map((rec,i) => `
+    <div class="rec-item ${rec.priority}" style="margin-bottom:12px">
+      <div class="rec-header">
+        <span class="rec-priority-badge">${rec.priority} Priority</span>
+        <span style="font-size:12px;color:var(--muted);margin-left:auto">Affects ${rec.count} employee${rec.count>1?'s':''}</span>
+      </div>
+      <div class="rec-action">${rec.action}</div>
+      <div class="rec-detail">${rec.detail}</div>
+      <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:6px">
+        ${rec.employees.slice(0,8).map(e=>`<span style="font-size:11px;padding:3px 8px;background:rgba(255,255,255,.05);border:1px solid var(--border);border-radius:12px;color:var(--muted)">${e}</span>`).join('')}
+        ${rec.employees.length > 8 ? `<span style="font-size:11px;padding:3px 8px;color:var(--muted)">+${rec.employees.length-8} more</span>` : ''}
+      </div>
+    </div>`).join('');
+}
+
+// ── EMPLOYEE MODAL ───────────────────────────────────────────────────────────
+function showEmployee(empId) {
+  const r = allPredictions.find(x => String(x.employee_id) === String(empId));
+  if (!r) return;
+
+  document.getElementById('modalAvatar').textContent = (r.name||'E')[0].toUpperCase();
+  document.getElementById('modalAvatar').style.background = `linear-gradient(135deg,${getAvatarColor(r.risk_label)})`;
+  document.getElementById('modalName').textContent = r.name || `Employee #${r.employee_id}`;
+  document.getElementById('modalSub').textContent = `${r.job_role} · ${r.department} · #${r.employee_id}`;
+  document.getElementById('modalHeaderBadge').className = `badge badge-${r.risk_label.toLowerCase()}`;
+  document.getElementById('modalHeaderBadge').textContent = r.risk_label + ' Risk';
+
+  const fill = document.getElementById('modalRiskFill');
+  fill.className = 'risk-meter-fill ' + r.risk_label.toLowerCase();
+  fill.style.width = '0%';
+  setTimeout(() => fill.style.width = r.attrition_probability + '%', 80);
+  document.getElementById('modalRiskPct').textContent = r.attrition_probability + '%';
+  document.getElementById('modalRiskPct').style.color = getRiskColor(r.risk_label);
+
+  // Tab 0: Explanation
+  document.getElementById('modalExplanation').textContent = r.explanation;
+  document.getElementById('modalReasons').innerHTML = (r.reasons||[]).map((reason,i) =>
+    `<div class="reason-item"><div class="reason-num">${i+1}</div><div>${reason}</div></div>`).join('');
+
+  // Tab 1: Feature chart
+  const fs = r.feature_scores || {};
+  setTimeout(() => {
+    if (contribChartInst) contribChartInst.destroy();
+    const ctx = document.getElementById('contribChart').getContext('2d');
+    contribChartInst = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: Object.keys(fs),
+        datasets: [{
+          label: 'Risk Contribution %',
+          data: Object.values(fs),
+          backgroundColor: Object.values(fs).map(v => v>70?'rgba(255,77,109,.8)':v>40?'rgba(251,146,60,.8)':'rgba(52,211,153,.7)'),
+          borderRadius: 5,
+        }]
+      },
+      options: {
+        responsive:true, maintainAspectRatio:false,
+        plugins:{legend:{display:false}},
+        scales:{
+          x:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#8b949e',font:{size:11}}},
+          y:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#8b949e',callback:v=>v+'%'},max:100,min:0}
+        }
+      }
+    });
+  }, 80);
+
+  document.getElementById('satBreakdown').innerHTML = `
+    ${renderSatItem('Job Satisfaction', r.job_satisfaction)}
+    ${renderSatItem('Env Satisfaction', r.env_satisfaction)}
+    ${renderSatItem('Work-Life Balance', r.work_life_balance)}
+    ${renderSatItem('Relationship Sat.', r.relationship_satisfaction)}
+    ${renderSatItem('Job Involvement', r.job_involvement)}`;
+
+  // Tab 2: Recommendations
+  document.getElementById('modalRecs').innerHTML = (r.recommendations||[]).map(rec => `
+    <div class="rec-item ${rec.priority}">
+      <div class="rec-header">
+        <span class="rec-priority-badge">${rec.priority} Priority</span>
+      </div>
+      <div class="rec-action">${rec.action}</div>
+      <div class="rec-detail">${rec.detail}</div>
+    </div>`).join('');
+
+  // Tab 3: Full Profile
+  const edu = ['','High School','College','Bachelor','Master','Doctor'];
+  document.getElementById('modalProfile').innerHTML = `
+    ${pItem('Employee ID', '#'+r.employee_id)}
+    ${pItem('Age', r.age + ' years')}
+    ${pItem('Gender', r.gender||'N/A')}
+    ${pItem('Marital Status', r.marital_status||'N/A')}
+    ${pItem('Education', edu[r.education]||r.education)}
+    ${pItem('Education Field', r.education_field||'N/A')}`;
+
+  document.getElementById('modalCareer').innerHTML = `
+    ${pItem('Job Level', 'Level ' + r.job_level)}
+    ${pItem('Years at Company', r.years_at_company + ' yrs')}
+    ${pItem('Total Working Yrs', r.total_working_years + ' yrs')}
+    ${pItem('Yrs in Current Role', r.years_at_company + ' yrs')}
+    ${pItem('Yrs Since Promotion', (r.years_since_promo||0) + ' yrs', r.years_since_promo>=4?'warn':'')}
+    ${pItem('Yrs with Manager', (r.years_with_manager||0) + ' yrs')}
+    ${pItem('No. Companies Worked', r.num_companies, r.num_companies>=5?'warn':'')}
+    ${pItem('Business Travel', (r.business_travel||'N/A').replace('_',' '))}
+    ${pItem('Distance From Home', (r.distance_from_home||0) + ' km', r.distance_from_home>=20?'warn':'')}`;
+
+  document.getElementById('modalComp').innerHTML = `
+    ${pItem('Monthly Income', '$'+(Number(r.monthly_income)||0).toLocaleString(), r.monthly_income<3000?'danger':r.monthly_income>8000?'success':'')}
+    ${pItem('Overtime', r.overtime, r.overtime==='Yes'?'danger':'success')}
+    ${pItem('Stock Options', 'Level ' + (r.stock_option||0), r.stock_option===0?'danger':'success')}
+    ${pItem('Salary Hike', (r.percent_salary_hike||0) + '%')}
+    ${pItem('Performance', r.performance_rating===4?'Excellent':'Good')}
+    ${pItem('Training Times', (r.training_times||0) + ' sessions/yr')}`;
+
+  // Reset to first tab
+  switchModalTab(0);
+  document.getElementById('empModal').classList.add('open');
+}
+
+function pItem(label, value, cls='') {
+  return `<div class="profile-item"><div class="profile-label">${label}</div><div class="profile-value ${cls}">${value}</div></div>`;
+}
+
+function switchModalTab(idx) {
+  document.querySelectorAll('.modal-tab').forEach((t,i) => t.classList.toggle('active', i===idx));
+  document.querySelectorAll('.modal-tab-content').forEach((t,i) => t.classList.toggle('active', i===idx));
+}
+
+function closeEmpModal(e) {
+  if (e.target.classList.contains('modal-overlay')) document.getElementById('empModal').classList.remove('open');
+}
+
+// ── MODEL COMPARISON TAB ─────────────────────────────────────────────────────
+function renderModelComparisonTab() {
+  // Comparison bars
+  const metrics = [
+    { label:'Accuracy',  old:71.4, new:84.0, unit:'%' },
+    { label:'ROC-AUC',   old:74.1, new:91.9, unit:'%' },
+    { label:'Precision', old:68.0, new:85.0, unit:'%' },
+    { label:'Recall',    old:59.0, new:91.0, unit:'%' },
+    { label:'F1 Score',  old:63.0, new:88.0, unit:'%' },
+  ];
+  document.getElementById('compBars').innerHTML = metrics.map(m => `
+    <div class="comp-bar-row">
+      <div class="comp-bar-label">${m.label}</div>
+      <div class="comp-bars" style="gap:5px">
+        <div class="comp-bar old" style="width:${m.old}%"></div>
+        <div class="comp-bar new" style="width:${m.new}%"></div>
+      </div>
+      <div class="comp-bar-vals">${m.old}% → <span style="color:var(--accent)">${m.new}%</span></div>
+    </div>`).join('');
+
+  // Algorithm list
+  const algos = [
+    { name:'Random Forest',     weight:3, type:'Tree Ensemble',    pct:27 },
+    { name:'Extra Trees',       weight:2, type:'Tree Ensemble',    pct:18 },
+    { name:'Gradient Boost v1', weight:3, type:'Boosting',         pct:27 },
+    { name:'Gradient Boost v2', weight:2, type:'Boosting',         pct:18 },
+    { name:'Neural Network MLP',weight:1, type:'Deep Learning',    pct:9  },
+  ];
+  document.getElementById('algoList').innerHTML = algos.map(a => `
+    <div class="algo-item">
+      <div>
+        <div class="algo-name">${a.name}</div>
+        <div class="algo-type">${a.type}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <div class="algo-bar-wrap"><div class="algo-bar" style="width:${a.pct*3}%"></div></div>
+        <div class="algo-weight">×${a.weight}</div>
+      </div>
+    </div>`).join('');
+
+  // Learning curve
+  const sizes = [200,400,600,800,1000,1200];
+  const oldAcc = [63,66,68,70,71,71.4];
+  const newAcc = [70,74,78,81,83,84];
+  setTimeout(() => {
+    if (charts.learning) charts.learning.destroy();
+    charts.learning = new Chart(document.getElementById('learningCurveChart'), {
+      type: 'line',
+      data: {
+        labels: sizes,
+        datasets: [
+          { label:'Baseline (Single RF)', data:oldAcc, borderColor:'rgba(124,92,252,.7)', backgroundColor:'rgba(124,92,252,.1)', tension:.4, pointRadius:4, fill:true },
+          { label:'Hybrid Ensemble', data:newAcc, borderColor:'var(--accent)', backgroundColor:'rgba(0,212,170,.1)', tension:.4, pointRadius:4, fill:true },
+        ]
+      },
+      options: {
+        responsive:true, maintainAspectRatio:false,
+        plugins:{legend:{labels:{color:'#8b949e',font:{size:11}}}},
+        scales:{
+          x:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#8b949e'},title:{display:true,text:'Training Samples',color:'#8b949e'}},
+          y:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#8b949e',callback:v=>v+'%'},min:55,max:90}
+        }
+      }
+    });
+
+    // Feature engineering impact chart
+    if (charts.featureImpact) charts.featureImpact.destroy();
+    charts.featureImpact = new Chart(document.getElementById('featureImpactChart'), {
+      type: 'bar',
+      data: {
+        labels: ['No Eng.','+ Satisfaction\nScores','+ Overtime\nInteractions','+ Income\nRatios','+ Tenure\nRatios','Full 18\nFeatures'],
+        datasets: [{
+          label: 'Accuracy %',
+          data: [71.4, 74.2, 77.1, 79.8, 81.5, 84.0],
+          backgroundColor: ['rgba(124,92,252,.5)','rgba(124,92,252,.6)','rgba(100,180,100,.6)','rgba(0,212,170,.5)','rgba(0,212,170,.65)','rgba(0,212,170,.85)'],
+          borderRadius: 6
+        }]
+      },
+      options: {
+        responsive:true, maintainAspectRatio:false,
+        plugins:{legend:{display:false}},
+        scales:{
+          x:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#8b949e',font:{size:11}}},
+          y:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#8b949e',callback:v=>v+'%'},min:65,max:90}
+        }
+      }
+    });
+  }, 100);
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// UTILITIES
+// ══════════════════════════════════════════════════════════════════════════════
+function getRiskColor(label) {
+  return {Critical:'#ff4d6d',High:'#fb923c',Medium:'#f59e0b',Low:'#34d399'}[label]||'#8b949e';
+}
+function getAvatarColor(label) {
+  return {Critical:'#ff4d6d,#c7173a',High:'#fb923c,#ea580c',Medium:'#f59e0b,#d97706',Low:'#34d399,#059669'}[label]||'#7c5cfc,#5b3fd4';
+}
+function animateCount(id, target) {
+  const el = document.getElementById(id);
+  let c=0; const step=target/30;
+  const t=setInterval(()=>{ c=Math.min(c+step,target); el.textContent=Math.round(c); if(c>=target) clearInterval(t); },30);
+}
+function showLoading(text) { document.getElementById('loadingText').textContent=text||'Processing…'; document.getElementById('loadingOverlay').classList.add('active'); }
+function hideLoading() { document.getElementById('loadingOverlay').classList.remove('active'); }
+function showToast(msg,type='success') {
+  const c=document.getElementById('toastContainer');
+  const t=document.createElement('div'); t.className=`toast ${type}`;
+  t.innerHTML=`<span>${type==='success'?'✓':'⚠'}</span><span>${msg}</span>`; c.appendChild(t);
+  setTimeout(()=>{ t.style.opacity='0'; t.style.transform='translateY(8px)'; setTimeout(()=>t.remove(),300); },3500);
+}
+function logout() { sessionStorage.clear(); window.location.href='/'; }
+function exportCSV() {
+  if (!filteredPredictions.length) return;
+  const headers=['ID','Name','Dept','Role','Age','Income','Tenure','OT','Risk%','Risk Level','Prediction'];
+  const rows=filteredPredictions.map(r=>[r.employee_id,r.name||'',r.department,r.job_role,r.age,r.monthly_income,r.years_at_company,r.overtime,r.attrition_probability,r.risk_label,r.prediction]);
+  const csv=[headers,...rows].map(r=>r.join(',')).join('\n');
+  const a=document.createElement('a'); a.href='data:text/csv,'+encodeURIComponent(csv);
+  a.download='hr_attrition_predictions.csv'; a.click();
+  showToast('Exported '+filteredPredictions.length+' records','success');
+}
+</script>
+</body>
+</html>
