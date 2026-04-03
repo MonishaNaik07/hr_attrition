@@ -28,6 +28,8 @@ def load_model():
         print(f"Model loaded. Accuracy: {model_data['accuracy']*100:.1f}%")
     except Exception as e:
         print(f"Warning: Could not load model: {e}")
+        
+load_model()
 
 
 # ─── Feature Engineering (must match training) ───────────────────────────────
@@ -373,5 +375,4 @@ def sample_data():
 
 
 if __name__ == '__main__':
-    load_model()
-    app.run(debug=True, host='0.0.0.0', port=5050)
+    app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 10000)))
