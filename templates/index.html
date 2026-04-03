@@ -3,328 +3,293 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AttritionIQ — HR Intelligence Platform</title>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<title>AttritionIQ — Sign In</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;700;800&display=swap" rel="stylesheet">
 <style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f4f4f5;
+  --bg2:#ececee;
+  --surface:#ffffff;
+  --surface2:#fafafa;
+  --border:#e2e2e6;
+  --border-strong:#c8c8ce;
+  --ink:#18181b;
+  --ink-soft:#3f3f46;
+  --ink-muted:#71717a;
+  --ink-faint:#a1a1aa;
+  --ink-ghost:#d4d4d8;
+  --red:#b91c1c;    --red-l:#fef2f2;  --red-m:#fee2e2;  --red-b:#fca5a5;
+  --green:#15803d;  --green-l:#f0fdf4;--green-m:#dcfce7;--green-b:#86efac;
+  --num-total:#1e3a5f; --num-total-bg:#e8f0f9;
+  --num-risk:#7f1d1d;  --num-risk-bg:#fce8e8;
+  --num-stay:#14532d;  --num-stay-bg:#e8f5ee;
+  --f:'Outfit',sans-serif;
+  --sh-sm:0 1px 2px rgba(0,0,0,.05),0 1px 4px rgba(0,0,0,.04);
+  --sh:0 2px 8px rgba(0,0,0,.07),0 1px 3px rgba(0,0,0,.05);
+  --sh-lg:0 8px 24px rgba(0,0,0,.1),0 2px 6px rgba(0,0,0,.06);
+}
 
-  :root {
-    --bg: #06070d;
-    --surface: #0d1117;
-    --surface2: #161b22;
-    --border: #21262d;
-    --accent: #00d4aa;
-    --accent2: #7c5cfc;
-    --danger: #ff4d6d;
-    --warn: #f59e0b;
-    --text: #e6edf3;
-    --muted: #8b949e;
-    --card: #0d1117;
-  }
+body{
+  font-family:var(--f);
+  background:var(--bg);
+  color:var(--ink);
+  min-height:100vh;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:24px;
+  -webkit-font-smoothing:antialiased;
+}
 
-  body {
-    font-family: 'Space Grotesk', sans-serif;
-    background: var(--bg);
-    color: var(--text);
-    min-height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    overflow: hidden;
-    position: relative;
-  }
+/* subtle dot grid bg */
+body::before{
+  content:'';
+  position:fixed;inset:0;z-index:0;
+  background-image:radial-gradient(circle,var(--border) 1px,transparent 1px);
+  background-size:28px 28px;
+  opacity:.6;
+  pointer-events:none;
+}
 
-  /* Animated mesh background */
-  .bg-mesh {
-    position: fixed; inset: 0; z-index: 0;
-    background:
-      radial-gradient(ellipse 80% 60% at 20% 50%, rgba(0,212,170,0.06) 0%, transparent 60%),
-      radial-gradient(ellipse 60% 80% at 80% 20%, rgba(124,92,252,0.08) 0%, transparent 60%),
-      radial-gradient(ellipse 50% 50% at 50% 100%, rgba(0,212,170,0.04) 0%, transparent 60%);
-  }
+.login-wrapper{
+  position:relative;z-index:1;
+  display:flex;
+  width:880px;max-width:100%;
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:12px;
+  overflow:hidden;
+  box-shadow:var(--sh-lg);
+  animation:fadeUp .5s cubic-bezier(.16,1,.3,1) both;
+}
+@keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
 
-  .grid-lines {
-    position: fixed; inset: 0; z-index: 0;
-    background-image:
-      linear-gradient(rgba(0,212,170,0.04) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(0,212,170,0.04) 1px, transparent 1px);
-    background-size: 50px 50px;
-    mask-image: radial-gradient(ellipse 100% 100% at 50% 50%, black 30%, transparent 80%);
-  }
+/* LEFT BRAND PANEL */
+.brand-panel{
+  flex:1.1;
+  background:var(--ink);
+  padding:48px 44px;
+  display:flex;flex-direction:column;
+  position:relative;overflow:hidden;
+}
+/* subtle top-right glow */
+.brand-panel::after{
+  content:'';
+  position:absolute;top:-80px;right:-80px;
+  width:280px;height:280px;border-radius:50%;
+  background:rgba(255,255,255,.03);
+  pointer-events:none;
+}
 
-  .floating-orbs {
-    position: fixed; inset: 0; z-index: 0; overflow: hidden;
-  }
-  .orb {
-    position: absolute; border-radius: 50%;
-    filter: blur(80px); opacity: 0.15;
-    animation: float 20s ease-in-out infinite;
-  }
-  .orb1 { width: 400px; height: 400px; background: var(--accent); top: -100px; left: -100px; animation-delay: 0s; }
-  .orb2 { width: 300px; height: 300px; background: var(--accent2); top: 60%; right: -50px; animation-delay: -7s; }
-  .orb3 { width: 200px; height: 200px; background: var(--accent); bottom: -50px; left: 40%; animation-delay: -14s; }
+.logo{display:flex;align-items:center;gap:10px;margin-bottom:44px}
+.logo-mark{
+  width:32px;height:32px;border-radius:6px;
+  background:#fff;
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;
+}
+.logo-mark svg{color:var(--ink)}
+.logo-text{font-size:15px;font-weight:800;color:#fff;letter-spacing:.3px;font-family:var(--f)}
+.logo-text span{color:rgba(255,255,255,.4)}
 
-  @keyframes float {
-    0%, 100% { transform: translate(0, 0) scale(1); }
-    33% { transform: translate(30px, -30px) scale(1.05); }
-    66% { transform: translate(-20px, 20px) scale(0.95); }
-  }
+.brand-headline{
+  font-size:30px;font-weight:800;
+  line-height:1.18;letter-spacing:-.8px;
+  color:#fff;margin-bottom:14px;
+}
+.brand-headline .hl{
+  display:inline-block;
+  background:var(--ink-ghost);
+  color:var(--ink);
+  padding:2px 10px;border-radius:5px;
+  font-size:28px;
+}
 
-  /* Login container */
-  .login-wrapper {
-    position: relative; z-index: 10;
-    display: flex; gap: 0;
-    width: 900px; max-width: 95vw;
-    border-radius: 24px;
-    overflow: hidden;
-    border: 1px solid var(--border);
-    box-shadow: 0 50px 100px rgba(0,0,0,0.5), 0 0 0 1px rgba(0,212,170,0.05);
-    animation: slideUp 0.8s cubic-bezier(0.16,1,0.3,1) both;
-  }
+.brand-sub{color:rgba(255,255,255,.45);font-size:13.5px;line-height:1.65;margin-bottom:36px;font-weight:400}
 
-  @keyframes slideUp {
-    from { opacity: 0; transform: translateY(40px) scale(0.96); }
-    to { opacity: 1; transform: translateY(0) scale(1); }
-  }
+.feature-list{display:flex;flex-direction:column;gap:0;margin-bottom:36px}
+.feature-item{
+  display:flex;align-items:flex-start;gap:11px;
+  padding:11px 0;
+  border-bottom:1px solid rgba(255,255,255,.06);
+}
+.feature-item:last-child{border-bottom:none}
+.fi-num{
+  width:20px;height:20px;border-radius:4px;
+  background:rgba(255,255,255,.08);
+  display:flex;align-items:center;justify-content:center;
+  font-size:9.5px;font-weight:800;color:rgba(255,255,255,.5);
+  flex-shrink:0;margin-top:1px;font-family:var(--f);
+}
+.feature-item .fi-text{font-size:13px;color:rgba(255,255,255,.5);line-height:1.55}
+.feature-item .fi-text strong{color:rgba(255,255,255,.9);font-weight:700}
 
-  /* Left panel */
-  .brand-panel {
-    flex: 1.2;
-    background: linear-gradient(135deg, #0d1117 0%, #0a0f1a 100%);
-    padding: 52px 48px;
-    display: flex; flex-direction: column;
-    position: relative; overflow: hidden;
-    border-right: 1px solid var(--border);
-  }
+.stats-row{display:flex;gap:10px}
+.stat-box{
+  flex:1;padding:14px 16px;
+  border-radius:6px;
+  background:rgba(255,255,255,.04);
+  border:1px solid rgba(255,255,255,.07);
+}
+.stat-val{
+  font-size:22px;font-weight:800;
+  font-family:var(--f);
+  display:inline-block;
+  padding:2px 8px;border-radius:4px;
+  margin-bottom:5px;
+}
+.stat-val.navy{background:var(--num-total-bg);color:var(--num-total)}
+.stat-val.crimson{background:var(--num-risk-bg);color:var(--num-risk)}
+.stat-val.forest{background:var(--num-stay-bg);color:var(--num-stay)}
+.stat-lbl{font-size:10px;font-weight:700;color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:.7px;font-family:var(--f)}
 
-  .brand-panel::before {
-    content: '';
-    position: absolute; top: -50%; left: -50%;
-    width: 200%; height: 200%;
-    background: radial-gradient(circle at 70% 50%, rgba(0,212,170,0.08) 0%, transparent 50%);
-  }
+/* RIGHT FORM PANEL */
+.form-panel{
+  flex:1;
+  padding:48px 44px;
+  display:flex;flex-direction:column;justify-content:center;
+  background:var(--surface);
+}
 
-  .logo {
-    display: flex; align-items: center; gap: 12px;
-    margin-bottom: 48px; position: relative;
-  }
+.form-title{font-size:24px;font-weight:800;color:var(--ink);margin-bottom:5px;letter-spacing:-.4px;font-family:var(--f)}
+.form-sub{font-size:12.5px;color:var(--ink-muted);margin-bottom:32px;font-family:var(--f)}
 
-  .logo-icon {
-    width: 44px; height: 44px;
-    background: linear-gradient(135deg, var(--accent), #00a880);
-    border-radius: 12px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 20px;
-    box-shadow: 0 0 20px rgba(0,212,170,0.3);
-  }
+.form-group{margin-bottom:18px}
+.form-group label{
+  display:block;font-size:10.5px;font-weight:700;
+  color:var(--ink-faint);margin-bottom:7px;
+  text-transform:uppercase;letter-spacing:.7px;font-family:var(--f);
+}
+.input-wrap{position:relative;display:flex;align-items:center}
+.input-ico{
+  position:absolute;left:12px;
+  color:var(--ink-faint);pointer-events:none;
+  display:flex;align-items:center;
+}
+.form-input{
+  width:100%;padding:11px 12px 11px 36px;
+  background:var(--surface2);
+  border:1px solid var(--border);border-radius:6px;
+  color:var(--ink);
+  font-family:var(--f);font-size:13.5px;
+  outline:none;transition:all .2s;
+}
+.form-input:focus{border-color:var(--ink-muted);background:#fff;box-shadow:0 0 0 3px var(--bg2)}
+.form-input::placeholder{color:var(--ink-ghost)}
 
-  .logo-text { font-size: 22px; font-weight: 700; letter-spacing: -0.5px; }
-  .logo-text span { color: var(--accent); }
+.btn-login{
+  width:100%;padding:12px 14px;
+  background:var(--ink);color:#fff;
+  border:none;border-radius:6px;
+  font-family:var(--f);font-size:14px;font-weight:800;
+  cursor:pointer;transition:all .18s;
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  letter-spacing:.2px;margin-top:4px;
+}
+.btn-login:hover{background:var(--ink-soft);transform:translateY(-1px);box-shadow:0 4px 12px rgba(24,24,27,.2)}
+.btn-login:active{transform:translateY(0)}
+.btn-login:disabled{opacity:.6;cursor:not-allowed;transform:none}
 
-  .brand-headline {
-    font-size: 34px; font-weight: 700;
-    line-height: 1.2; letter-spacing: -1px;
-    margin-bottom: 20px; position: relative;
-  }
+.spinner{
+  display:none;width:16px;height:16px;
+  border:2px solid rgba(255,255,255,.3);border-top-color:#fff;
+  border-radius:50%;animation:spin .7s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
 
-  .brand-headline .gradient-text {
-    background: linear-gradient(135deg, var(--accent) 0%, #7c5cfc 100%);
-    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-  }
+.error-msg{
+  background:var(--red-l);border:1px solid var(--red-b);
+  border-radius:6px;padding:10px 13px;margin-bottom:14px;
+  font-size:12.5px;color:var(--red);display:none;
+  font-family:var(--f);font-weight:600;
+}
 
-  .brand-sub {
-    color: var(--muted); font-size: 15px; line-height: 1.6;
-    margin-bottom: 40px; position: relative;
-  }
+.demo-creds{
+  margin-top:22px;padding:14px 16px;
+  background:var(--bg);border:1px solid var(--border);border-radius:6px;
+}
+.demo-label{font-size:10px;font-weight:700;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.7px;margin-bottom:9px;font-family:var(--f)}
+.cred-row{display:flex;gap:6px;flex-wrap:wrap}
+.cred-badge{
+  font-family:var(--f);font-size:11.5px;font-weight:700;
+  padding:4px 10px;
+  background:var(--surface);border:1px solid var(--border-strong);
+  border-radius:4px;color:var(--ink-soft);cursor:pointer;
+  transition:all .15s;
+}
+.cred-badge:hover{border-color:var(--ink-muted);color:var(--ink);background:var(--bg2)}
 
-  .feature-list { position: relative; }
-  .feature-item {
-    display: flex; align-items: center; gap: 12px;
-    padding: 12px 0;
-    border-bottom: 1px solid rgba(255,255,255,0.04);
-  }
-  .feature-item:last-child { border-bottom: none; }
-  .feature-dot {
-    width: 8px; height: 8px; border-radius: 50%;
-    background: var(--accent); flex-shrink: 0;
-    box-shadow: 0 0 8px var(--accent);
-  }
-  .feature-item span { font-size: 13px; color: var(--muted); }
-  .feature-item strong { color: var(--text); font-weight: 500; }
-
-  .stats-row {
-    display: flex; gap: 24px; margin-top: 40px;
-    position: relative;
-  }
-  .stat-box {
-    flex: 1; padding: 16px;
-    background: rgba(255,255,255,0.03);
-    border: 1px solid var(--border); border-radius: 12px;
-  }
-  .stat-box .val {
-    font-size: 24px; font-weight: 700;
-    color: var(--accent); font-family: 'DM Mono', monospace;
-  }
-  .stat-box .lbl { font-size: 11px; color: var(--muted); margin-top: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
-
-  /* Right panel - form */
-  .form-panel {
-    flex: 1;
-    background: var(--surface);
-    padding: 52px 44px;
-    display: flex; flex-direction: column; justify-content: center;
-  }
-
-  .form-title { font-size: 26px; font-weight: 700; margin-bottom: 8px; letter-spacing: -0.5px; }
-  .form-sub { color: var(--muted); font-size: 14px; margin-bottom: 36px; }
-
-  .form-group { margin-bottom: 20px; }
-  .form-group label { display: block; font-size: 13px; font-weight: 500; color: var(--muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
-
-  .input-wrap { position: relative; }
-  .input-wrap .icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: 16px; }
-
-  .form-input {
-    width: 100%; padding: 13px 14px 13px 42px;
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    color: var(--text);
-    font-family: 'Space Grotesk', sans-serif;
-    font-size: 14px;
-    transition: all 0.2s;
-    outline: none;
-  }
-  .form-input:focus {
-    border-color: var(--accent);
-    box-shadow: 0 0 0 3px rgba(0,212,170,0.1);
-  }
-  .form-input::placeholder { color: #3d444d; }
-
-  .btn-login {
-    width: 100%; padding: 14px;
-    background: linear-gradient(135deg, var(--accent), #00a880);
-    border: none; border-radius: 10px;
-    color: #0a0f1a; font-family: 'Space Grotesk', sans-serif;
-    font-size: 15px; font-weight: 700;
-    cursor: pointer; margin-top: 8px;
-    transition: all 0.2s;
-    letter-spacing: 0.3px;
-    position: relative; overflow: hidden;
-  }
-  .btn-login:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 8px 24px rgba(0,212,170,0.3);
-  }
-  .btn-login:active { transform: translateY(0); }
-
-  .btn-login .spinner {
-    display: none; width: 18px; height: 18px;
-    border: 2px solid rgba(0,0,0,0.3); border-top-color: #000;
-    border-radius: 50%; animation: spin 0.7s linear infinite;
-    margin: 0 auto;
-  }
-  @keyframes spin { to { transform: rotate(360deg); } }
-
-  .demo-creds {
-    margin-top: 24px;
-    padding: 16px;
-    background: rgba(0,212,170,0.05);
-    border: 1px solid rgba(0,212,170,0.15);
-    border-radius: 10px;
-  }
-  .demo-creds p { font-size: 12px; color: var(--muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
-  .cred-row {
-    display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px;
-  }
-  .cred-badge {
-    font-family: 'DM Mono', monospace;
-    font-size: 11px; padding: 4px 10px;
-    background: rgba(0,212,170,0.1); border: 1px solid rgba(0,212,170,0.2);
-    border-radius: 6px; color: var(--accent); cursor: pointer;
-    transition: all 0.15s;
-  }
-  .cred-badge:hover { background: rgba(0,212,170,0.2); }
-
-  .error-msg {
-    background: rgba(255,77,109,0.1); border: 1px solid rgba(255,77,109,0.3);
-    border-radius: 8px; padding: 12px 14px; margin-bottom: 16px;
-    font-size: 13px; color: #ff4d6d; display: none;
-  }
+.divider{height:1px;background:var(--border);margin:24px 0}
+.bottom-note{font-size:11px;color:var(--ink-faint);text-align:center;font-family:var(--f)}
 </style>
 </head>
 <body>
 
-<div class="bg-mesh"></div>
-<div class="grid-lines"></div>
-<div class="floating-orbs">
-  <div class="orb orb1"></div>
-  <div class="orb orb2"></div>
-  <div class="orb orb3"></div>
-</div>
-
 <div class="login-wrapper">
-  <!-- Brand Panel -->
+
+  <!-- BRAND PANEL -->
   <div class="brand-panel">
     <div class="logo">
-      <div class="logo-icon">🧠</div>
+      <div class="logo-mark">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96-.46 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 1.98-3A2.5 2.5 0 0 1 9.5 2Z"/><path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96-.46 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-1.98-3A2.5 2.5 0 0 0 14.5 2Z"/></svg>
+      </div>
       <div class="logo-text">Attrition<span>IQ</span></div>
     </div>
 
     <h1 class="brand-headline">
-      Predict Who's<br>
-      <span class="gradient-text">Leaving Next</span>
+      Predict who's<br>leaving <span class="hl">next.</span>
     </h1>
-    <p class="brand-sub">
-      AI-powered HR intelligence that identifies flight risks before they become resignations.
-    </p>
+    <p class="brand-sub">AI-powered HR intelligence that identifies flight risks before they become resignations. Upload a CSV, get instant predictions.</p>
 
     <div class="feature-list">
       <div class="feature-item">
-        <div class="feature-dot"></div>
-        <span><strong>Hybrid Ensemble ML</strong> — 5 models with weighted voting</span>
+        <div class="fi-num">01</div>
+        <div class="fi-text"><strong>Hybrid Ensemble ML</strong> — 5 models with weighted voting for maximum accuracy</div>
       </div>
       <div class="feature-item">
-        <div class="feature-dot"></div>
-        <span><strong>49 Features</strong> — 18 engineered + 31 original signals</span>
+        <div class="fi-num">02</div>
+        <div class="fi-text"><strong>49 Features</strong> — 18 engineered + 31 original predictive signals</div>
       </div>
       <div class="feature-item">
-        <div class="feature-dot"></div>
-        <span><strong>Natural Language</strong> — Explainable AI for every prediction</span>
+        <div class="fi-num">03</div>
+        <div class="fi-text"><strong>Explainable AI</strong> — Natural language reasons for every prediction</div>
       </div>
       <div class="feature-item">
-        <div class="feature-dot"></div>
-        <span><strong>HR Recommendations</strong> — Priority-ranked retention actions</span>
+        <div class="fi-num">04</div>
+        <div class="fi-text"><strong>HR Recommendations</strong> — Priority-ranked retention actions per employee</div>
       </div>
     </div>
 
     <div class="stats-row">
       <div class="stat-box">
-        <div class="val">84%</div>
-        <div class="lbl">Accuracy</div>
+        <div class="stat-val navy">84%</div>
+        <div class="stat-lbl">Accuracy</div>
       </div>
       <div class="stat-box">
-        <div class="val">0.92</div>
-        <div class="lbl">ROC-AUC</div>
+        <div class="stat-val crimson">0.92</div>
+        <div class="stat-lbl">ROC-AUC</div>
       </div>
       <div class="stat-box">
-        <div class="val">1,470</div>
-        <div class="lbl">Records</div>
+        <div class="stat-val forest">1,470</div>
+        <div class="stat-lbl">Records</div>
       </div>
     </div>
   </div>
 
-  <!-- Form Panel -->
+  <!-- FORM PANEL -->
   <div class="form-panel">
-    <h2 class="form-title">Welcome back</h2>
-    <p class="form-sub">Sign in to access the HR Intelligence Platform</p>
+    <div class="form-title">Welcome back</div>
+    <div class="form-sub">Sign in to access the HR Intelligence Platform</div>
 
     <div class="error-msg" id="errorMsg">Invalid username or password</div>
 
     <div class="form-group">
       <label>Username</label>
       <div class="input-wrap">
-        <span class="icon">👤</span>
+        <span class="input-ico">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        </span>
         <input type="text" class="form-input" id="username" placeholder="Enter username" value="admin">
       </div>
     </div>
@@ -332,73 +297,74 @@
     <div class="form-group">
       <label>Password</label>
       <div class="input-wrap">
-        <span class="icon">🔐</span>
+        <span class="input-ico">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        </span>
         <input type="password" class="form-input" id="password" placeholder="Enter password" value="admin123">
       </div>
     </div>
 
     <button class="btn-login" id="loginBtn" onclick="doLogin()">
-      <span id="btnText">Sign In →</span>
+      <span id="btnText">Sign In</span>
+      <svg id="btnArrow" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
       <div class="spinner" id="spinner"></div>
     </button>
 
     <div class="demo-creds">
-      <p>Demo credentials — click to autofill</p>
+      <div class="demo-label">Demo credentials — click to autofill</div>
       <div class="cred-row">
         <span class="cred-badge" onclick="fillCreds('admin','admin123')">admin / admin123</span>
         <span class="cred-badge" onclick="fillCreds('hr_manager','hr2024')">hr_manager / hr2024</span>
         <span class="cred-badge" onclick="fillCreds('analyst','data2024')">analyst / data2024</span>
       </div>
     </div>
+
+    <div class="divider"></div>
+    <div class="bottom-note">AttritionIQ · HR Intelligence Platform · v2.0</div>
   </div>
 </div>
 
 <script>
-function fillCreds(u, p) {
-  document.getElementById('username').value = u;
-  document.getElementById('password').value = p;
+function fillCreds(u,p){
+  document.getElementById('username').value=u;
+  document.getElementById('password').value=p;
 }
 
-async function doLogin() {
-  const user = document.getElementById('username').value;
-  const pass = document.getElementById('password').value;
-  const btn = document.getElementById('loginBtn');
-  const txt = document.getElementById('btnText');
-  const spin = document.getElementById('spinner');
-  const err = document.getElementById('errorMsg');
+async function doLogin(){
+  const user=document.getElementById('username').value;
+  const pass=document.getElementById('password').value;
+  const btn=document.getElementById('loginBtn');
+  const txt=document.getElementById('btnText');
+  const arrow=document.getElementById('btnArrow');
+  const spin=document.getElementById('spinner');
+  const err=document.getElementById('errorMsg');
 
-  txt.style.display = 'none'; spin.style.display = 'block';
-  btn.disabled = true; err.style.display = 'none';
+  txt.style.display='none';arrow.style.display='none';spin.style.display='block';
+  btn.disabled=true;err.style.display='none';
 
-  try {
-    const res = await fetch('/api/login', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({username: user, password: pass})
-    });
-    const data = await res.json();
-    if (data.success) {
-      sessionStorage.setItem('token', data.token);
-      sessionStorage.setItem('user', data.user);
-      sessionStorage.setItem('role', data.role || 'HR Manager');
-      btn.style.background = 'linear-gradient(135deg, #00d4aa, #00a880)';
-      txt.textContent = '✓ Redirecting...';
-      txt.style.display = 'block'; spin.style.display = 'none';
-      setTimeout(() => window.location.href = '/dashboard', 600);
-    } else {
-      err.style.display = 'block';
-      txt.style.display = 'block'; spin.style.display = 'none';
-      btn.disabled = false;
+  try{
+    const res=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:user,password:pass})});
+    const data=await res.json();
+    if(data.success){
+      sessionStorage.setItem('token',data.token);
+      sessionStorage.setItem('user',data.user);
+      sessionStorage.setItem('role',data.role||'HR Manager');
+      spin.style.display='none';txt.textContent='Redirecting…';txt.style.display='block';
+      setTimeout(()=>window.location.href='/dashboard',600);
+    }else{
+      err.style.display='block';
+      txt.style.display='block';arrow.style.display='block';spin.style.display='none';
+      btn.disabled=false;
     }
-  } catch(e) {
-    err.textContent = 'Server connection error. Please try again.';
-    err.style.display = 'block';
-    txt.style.display = 'block'; spin.style.display = 'none';
-    btn.disabled = false;
+  }catch(e){
+    err.textContent='Server connection error. Please try again.';
+    err.style.display='block';
+    txt.style.display='block';arrow.style.display='block';spin.style.display='none';
+    btn.disabled=false;
   }
 }
 
-document.addEventListener('keypress', e => { if(e.key === 'Enter') doLogin(); });
+document.addEventListener('keypress',e=>{if(e.key==='Enter')doLogin();});
 </script>
 </body>
 </html>
