@@ -530,6 +530,18 @@ def health():
         "total_batches": len(batches_db),
     }), 200
 
+@app.route("/")
+def home():
+    return jsonify({
+        "message": "AttritionIQ Backend is Running 🚀",
+        "status": "success",
+        "available_endpoints": [
+            "/api/health",
+            "/api/login",
+            "/api/predict",
+            "/api/upload_csv"
+        ]
+    })
 
 # ============================================================
 # MAIN
