@@ -1,7 +1,6 @@
 import React, { useState, useRef, useCallback } from 'react';
 import Papa from 'papaparse';
 import { Upload, FileSpreadsheet, AlertCircle, CheckCircle2, Brain, Loader2, Download } from 'lucide-react';
-import { predictAttrition, detectPipeline, saveRecord, saveBatch, generateId } from '../utils/mockApi';
 import { PredictionRecord, BatchSummary } from '../types';
 
 interface BatchAnalyzerProps {
@@ -17,6 +16,7 @@ const BatchAnalyzer: React.FC<BatchAnalyzerProps> = ({ onBatchComplete }) => {
   const [error, setError] = useState('');
   const [previewData, setPreviewData] = useState<{ columns: string[]; rowCount: number; pipeline: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [detectedPipeline, setDetectedPipeline] = useState<string>("");
 
   const handleFile = useCallback((f: File) => {
     if (!f.name.endsWith('.csv')) {
@@ -33,11 +33,11 @@ const BatchAnalyzer: React.FC<BatchAnalyzerProps> = ({ onBatchComplete }) => {
       preview: 5,
       complete: (results) => {
         const columns = results.meta.fields || [];
-        const pipeline = detectPipeline(columns);
+        const pipeline = "Auto Detect";
         setPreviewData({
           columns,
           rowCount: 0,
-          pipeline: pipeline === 'ibm' ? 'IBM HR Pipeline' : pipeline === 'synthetic' ? 'Synthetic Pipeline' : 'Unknown',
+          pipeline: "Auto Detection (Backend)"
         });
       },
     });
@@ -70,86 +70,47 @@ const BatchAnalyzer: React.FC<BatchAnalyzerProps> = ({ onBatchComplete }) => {
   };
 
   const processBatch = async () => {
-    if (!file || !previewData) return;
+    if (!file) return;
+
     setProcessing(true);
     setProgress(0);
     setError('');
 
-    Papa.parse(file, {
-      header: true,
-      skipEmptyLines: true,
-      complete: (results) => {
-        const data = results.data as Record<string, string>[];
-        const pipeline = detectPipeline(Object.keys(data[0] || {}));
-        const batchId = generateId();
-        let highRiskCount = 0;
-        let mediumRiskCount = 0;
-        let lowRiskCount = 0;
-        let criticalCount = 0;
-        let totalProb = 0;
+    const formData = new FormData();
+    formData.append("file", file);
 
-        // Process each row with simulated async progress
-        let processed = 0;
-        const processNext = () => {
-          const batchSize = Math.min(50, data.length - processed);
-          for (let i = 0; i < batchSize; i++) {
-            const row = data[processed + i];
-            const input: Record<string, string | number> = {};
-            for (const [key, val] of Object.entries(row)) {
-              const num = Number(val);
-              input[key] = isNaN(num) ? val : num;
-            }
+    try {
+      const res = await fetch("https://hr-attrition-175k.onrender.com/api/upload_csv", {
+        method: "POST",
+        body: formData,
+      });
 
-            const result = predictAttrition(input, pipeline as 'ibm' | 'synthetic');
-            totalProb += result.attritionProbability;
+      console.log("RESPONSE STATUS:", res.status);
 
-            if (result.riskLevel === 'Critical') criticalCount++;
-            else if (result.riskLevel === 'High') highRiskCount++;
-            else if (result.riskLevel === 'Medium') mediumRiskCount++;
-            else lowRiskCount++;
+      let data;
+      try {
+        data = await res.json();
+        console.log("BACKEND DATA:", data);
+      } catch (e) {
+        throw new Error("Invalid server response");
+      }
 
-            const record: PredictionRecord = {
-              id: generateId(),
-              timestamp: new Date().toISOString(),
-              type: 'batch',
-              pipeline: pipeline as 'ibm' | 'synthetic',
-              input,
-              result,
-              batchId,
-            };
-            saveRecord(record);
-          }
-          processed += batchSize;
-          setProgress(Math.round((processed / data.length) * 100));
+      if (!res.ok) {
+        throw new Error(data.error || "Upload failed");
+      }
 
-          if (processed < data.length) {
-            requestAnimationFrame(processNext);
-          } else {
-            const summary: BatchSummary = {
-              id: batchId,
-              timestamp: new Date().toISOString(),
-              pipeline: pipeline as 'ibm' | 'synthetic',
-              totalRecords: data.length,
-              highRiskCount,
-              mediumRiskCount,
-              lowRiskCount,
-              criticalCount,
-              avgAttritionProb: Math.round((totalProb / data.length) * 10) / 10,
-              fileName: file.name,
-            };
-            saveBatch(summary);
-            setBatchResult(summary);
-            setProcessing(false);
-            onBatchComplete();
-          }
-        };
-        processNext();
-      },
-      error: () => {
-        setError('Failed to parse CSV file. Please check the format.');
-        setProcessing(false);
-      },
-    });
+      // ✅ Correct updates
+      setBatchResult(data.batch);
+      setDetectedPipeline(data.batch.pipeline);
+
+      setProcessing(false);
+      setProgress(100);
+      onBatchComplete();
+
+    } catch (err: any) {
+      setError(err.message);
+      setProcessing(false);
+    }
   };
 
   const exportResults = () => {
@@ -230,7 +191,10 @@ Average Attrition Probability: ${batchResult.avgAttritionProb}%
             {previewData && (
               <div className="file-preview">
                 <div className="preview-tag">
-                  <Brain size={14} /> {previewData.pipeline}
+                  <Brain size={14} />
+                    {detectedPipeline
+                      ? (detectedPipeline === "synthetic" ? "Synthetic Pipeline" : "IBM HR Pipeline")
+                      : "Auto Detection (Backend)"}
                 </div>
                 <div className="preview-tag">
                   {previewData.columns.length} columns

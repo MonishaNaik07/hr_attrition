@@ -409,3 +409,20 @@ export function getStats() {
     totalRecords: batches.reduce((s, b) => s + b.totalRecords, 0),
   };
 }
+const BASE_URL = "https://hr-attrition-175k.onrender.com";
+
+export async function uploadCSV(file: File) {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const res = await fetch(`${BASE_URL}/api/upload_csv`, {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!res.ok) {
+    throw new Error("Upload failed");
+  }
+
+  return res.json();
+}

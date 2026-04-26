@@ -325,83 +325,93 @@ def predict():
 # ============================================================
 # SMART BATCH ANALYZER
 # ============================================================
-
 @app.route("/api/upload_csv", methods=["POST"])
 def upload_csv():
-    if "file" not in request.files:
-        return jsonify({"error": "No file uploaded."}), 400
-
-    file = request.files["file"]
-    if not file.filename.endswith(".csv"):
-        return jsonify({"error": "Only CSV files accepted."}), 400
-
     try:
+        if "file" not in request.files:
+            return jsonify({"error": "No file uploaded."}), 400
+
+        file = request.files["file"]
+
+        if not file.filename.endswith(".csv"):
+            return jsonify({"error": "Only CSV files accepted."}), 400
+
         df = pd.read_csv(file)
+
+        IBM_COLUMNS = {
+            "Age","BusinessTravel","Department","DistanceFromHome",
+            "Education","EnvironmentSatisfaction","Gender",
+            "JobInvolvement","JobLevel","JobRole","JobSatisfaction",
+            "MaritalStatus","MonthlyIncome","OverTime"
+        }
+
+        SYN_COLUMNS = {
+            "age","distance_from_home","education","environment_satisfaction",
+            "job_involvement","job_level","job_satisfaction","monthly_income",
+            "monthly_rate","num_companies_worked","percent_salary_hike",
+            "performance_rating","relationship_satisfaction","stock_option_level",
+            "total_working_years","training_times_last_year","work_life_balance",
+            "years_at_company","years_in_current_role","years_since_last_promotion"
+        }
+
+        cols_lower = {c.lower() for c in df.columns}
+
+        syn_score = len(cols_lower & {c.lower() for c in SYN_COLUMNS})
+        ibm_score = len(cols_lower & {c.lower() for c in IBM_COLUMNS})
+
+        print(f"DEBUG → SYN: {syn_score}, IBM: {ibm_score}")
+
+        if syn_score > ibm_score:
+            pipeline = "synthetic"
+        elif ibm_score > syn_score:
+            pipeline = "ibm"
+        else:
+            return jsonify({"error": "Unknown dataset format"}), 400
+
+        if pipeline not in models:
+            return jsonify({"error": f"Model not loaded: {pipeline}"}), 400
+
+        results = []
+        total_prob = 0
+        risk_counts = {"Critical":0,"High":0,"Medium":0,"Low":0}
+
+        for _, row in df.iterrows():
+            features = row.to_dict()
+
+            for k,v in features.items():
+                if pd.isna(v):
+                    features[k] = 0
+
+            try:
+                result, status = predict_single(features, pipeline)
+
+                if status == 200:
+                    results.append(result)
+                    total_prob += result["attritionProbability"]
+                    risk_counts[result["riskLevel"]] += 1
+
+            except Exception as e:
+                print("ROW ERROR:", e)
+
+        if len(results) == 0:
+            return jsonify({"error":"No predictions"}),500
+
+        return jsonify({
+            "batch":{
+                "pipeline":pipeline,
+                "totalRecords":len(results),
+                "highRiskCount":risk_counts["High"],
+                "mediumRiskCount":risk_counts["Medium"],
+                "lowRiskCount":risk_counts["Low"],
+                "criticalCount":risk_counts["Critical"],
+                "avgAttritionProb":round(total_prob/len(results),1),
+                "fileName":file.filename
+            }
+        })
+
     except Exception as e:
-        return jsonify({"error": f"CSV parse error: {str(e)}"}), 400
-
-    columns = list(df.columns)
-
-    # Auto-detect pipeline
-    ibm_markers = {"OverTime", "BusinessTravel", "JobRole", "Department", "MaritalStatus"}
-    synth_markers = {"age", "distance_from_home", "job_satisfaction", "work_life_balance"}
-
-    ibm_match = len(set(c.lower() for c in columns) & {m.lower() for m in ibm_markers})
-    synth_match = len(set(c.lower() for c in columns) & {m.lower() for m in synth_markers})
-
-    pipeline = "ibm" if ibm_match >= synth_match else "synthetic"
-
-    if pipeline not in models:
-        return jsonify({"error": f"Detected pipeline '{pipeline}' but model not loaded."}), 400
-
-    batch_id = str(uuid.uuid4())
-    results = []
-    risk_counts = {"Critical": 0, "High": 0, "Medium": 0, "Low": 0}
-    total_prob = 0.0
-
-    for _, row in df.iterrows():
-        features = row.to_dict()
-        # Convert NaN to 0/empty
-        for k, v in features.items():
-            if pd.isna(v):
-                features[k] = 0
-
-        result, status = predict_single(features, pipeline)
-        if status == 200:
-            total_prob += result["attritionProbability"]
-            risk_counts[result["riskLevel"]] += 1
-            results.append(result)
-
-            records_db.append({
-                "id": str(uuid.uuid4()),
-                "timestamp": datetime.utcnow().isoformat(),
-                "type": "batch",
-                "pipeline": pipeline,
-                "input": {k: str(v) for k, v in features.items()},
-                "result": result,
-                "batchId": batch_id,
-            })
-
-    total = len(results)
-    batch_summary = {
-        "id": batch_id,
-        "timestamp": datetime.utcnow().isoformat(),
-        "pipeline": pipeline,
-        "totalRecords": total,
-        "criticalCount": risk_counts["Critical"],
-        "highRiskCount": risk_counts["High"],
-        "mediumRiskCount": risk_counts["Medium"],
-        "lowRiskCount": risk_counts["Low"],
-        "avgAttritionProb": round(total_prob / total, 1) if total else 0,
-        "fileName": file.filename,
-    }
-    batches_db.append(batch_summary)
-
-    return jsonify({
-        "batch": batch_summary,
-        "results": results[:50],  # Preview first 50
-        "message": f"Processed {total} records via {pipeline} pipeline.",
-    }), 200
+        print("UPLOAD ERROR:", e)
+        return jsonify({"error": str(e)}), 500
 
 
 # ============================================================
@@ -531,19 +541,6 @@ def health():
         "total_predictions": len(records_db),
         "total_batches": len(batches_db),
     }), 200
-
-@app.route("/")
-def serve():
-    return send_from_directory(app.static_folder, "index.html")
-
-@app.route("/<path:path>")
-def static_proxy(path):
-    file_path = os.path.join(app.static_folder, path)
-
-    if os.path.exists(file_path):
-        return send_from_directory(app.static_folder, path)
-
-    return send_from_directory(app.static_folder, "index.html")
     
 @app.route("/")
 def serve_frontend():
