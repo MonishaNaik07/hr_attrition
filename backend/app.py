@@ -15,8 +15,10 @@ from flask_cors import CORS
 import pandas as pd
 import numpy as np
 from werkzeug.security import generate_password_hash, check_password_hash
+from flask import send_from_directory
+import os
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder="static", static_url_path="")
 app.secret_key = os.environ.get("SECRET_KEY", "attrition_iq_super_secret_key_2024")
 CORS(app, supports_credentials=True)
 
@@ -542,6 +544,19 @@ def home():
             "/api/upload_csv"
         ]
     })
+    
+@app.route("/")
+def serve_frontend():
+    return send_from_directory(app.static_folder, "index.html")
+
+@app.route("/<path:path>")
+def serve_static(path):
+    full_path = os.path.join(app.static_folder, path)
+
+    if os.path.exists(full_path):
+        return send_from_directory(app.static_folder, path)
+
+    return send_from_directory(app.static_folder, "index.html")
 
 # ============================================================
 # MAIN
