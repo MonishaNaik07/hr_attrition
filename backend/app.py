@@ -533,17 +533,17 @@ def health():
     }), 200
 
 @app.route("/")
-def home():
-    return jsonify({
-        "message": "AttritionIQ Backend is Running 🚀",
-        "status": "success",
-        "available_endpoints": [
-            "/api/health",
-            "/api/login",
-            "/api/predict",
-            "/api/upload_csv"
-        ]
-    })
+def serve():
+    return send_from_directory(app.static_folder, "index.html")
+
+@app.route("/<path:path>")
+def static_proxy(path):
+    file_path = os.path.join(app.static_folder, path)
+
+    if os.path.exists(file_path):
+        return send_from_directory(app.static_folder, path)
+
+    return send_from_directory(app.static_folder, "index.html")
     
 @app.route("/")
 def serve_frontend():
