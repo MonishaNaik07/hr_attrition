@@ -60,51 +60,85 @@ def safe_float(val, default=0):
 
 def generate_explanation_and_solution(data):
     recommendations = []
-    
-    # Specific Data-Driven Logic
-    inc = safe_float(data.get('MonthlyIncome'), 5000)
+
+    # Normalize keys to be case-insensitive
+    data_lower = {str(k).lower(): v for k, v in data.items()}
+
+    def get(key, default=0):
+        return data_lower.get(key.lower(), default)
+
+    # Income check
+    inc = safe_float(get('MonthlyIncome', 5000), 5000)
     if inc < 3500:
         recommendations.append({
             "reason": f"Current income (${inc}) is significantly below the $4,000 threshold for this role.",
-            "solution": f"Immediately review {data.get('employee_name', 'Employee')}'s salary tier for a market-rate adjustment."
+            "solution": f"Immediately review {get('employee_name', 'Employee')}'s salary tier for a market-rate adjustment."
         })
-        
-    ot = data.get('OverTime', 'No')
-    if ot == 'Yes':
+
+    # Overtime check
+    ot = str(get('OverTime', 'No')).strip()
+    if ot in ['Yes', '1', '1.0', 'yes', 'YES']:
         recommendations.append({
             "reason": "Consistent overtime is increasing burnout risk.",
             "solution": "Redistribute workload or introduce a compensatory off-day policy."
         })
 
-    jsat = safe_float(data.get('JobSatisfaction'), 3)
+    # Job satisfaction check
+    jsat = safe_float(get('JobSatisfaction', 3), 3)
     if jsat <= 2:
         recommendations.append({
             "reason": f"Low Job Satisfaction score ({jsat}/4) detected.",
-            "solution": f"Conduct a focused role-fit assessment for {data.get('employee_name', 'the employee')}."
+            "solution": f"Conduct a focused role-fit assessment for {get('employee_name', 'the employee')}."
         })
 
-    tenure = safe_float(data.get('YearsAtCompany'), 5)
-    promot = safe_float(data.get('YearsSinceLastPromotion'), 1)
+    # Promotion stagnation check
+    tenure = safe_float(get('YearsAtCompany', 5), 5)
+    promot = safe_float(get('YearsSinceLastPromotion', 1), 1)
     if tenure > 3 and promot > 2:
         recommendations.append({
-            "reason": f"Has been at company for {tenure} years without a promotion in {promot} years.",
+            "reason": f"Has been at company for {int(tenure)} years without a promotion in {int(promot)} years.",
             "solution": "Establish a clear 12-month promotion track or vertical growth plan."
         })
 
-    dist = safe_float(data.get('DistanceFromHome'), 1)
+    # Distance check
+    dist = safe_float(get('DistanceFromHome', 1), 1)
     if dist > 20:
         recommendations.append({
-            "reason": f"Long-distance commute ({dist}km) is likely impacting work-life balance.",
+            "reason": f"Long-distance commute ({int(dist)}km) is likely impacting work-life balance.",
             "solution": "Transition to a hybrid model (3 days remote) to reduce travel fatigue."
         })
-        
+
+    # Work-life balance check
+    wlb = safe_float(get('WorkLifeBalance', 3), 3)
+    if wlb <= 2:
+        recommendations.append({
+            "reason": f"Poor Work-Life Balance score ({wlb}/4) detected.",
+            "solution": "Introduce flexible working hours or remote work options."
+        })
+
+    # Environment satisfaction check
+    env = safe_float(get('EnvironmentSatisfaction', 3), 3)
+    if env <= 2:
+        recommendations.append({
+            "reason": f"Low Environment Satisfaction score ({env}/4) detected.",
+            "solution": "Address workplace conditions through team surveys and structural improvements."
+        })
+
+    # Age + low income = high risk
+    age = safe_float(get('Age', 30), 30)
+    if age < 30 and inc < 5000:
+        recommendations.append({
+            "reason": f"Young employee (age {int(age)}) with below-average income — high flight risk.",
+            "solution": "Offer accelerated growth tracks and mentorship programs."
+        })
+
     # Default if no specific triggers
     if not recommendations:
         recommendations.append({
             "reason": "Multiple subtle demographic factors (Tenure, Age, Role complexity).",
             "solution": "Implement a proactive stay-interview to identify hidden engagement gaps."
         })
-        
+
     return recommendations
 
 @app.after_request
@@ -329,10 +363,12 @@ def upload_csv():
             }
             records_db.append(record)
             
+            key_factor = exp[0]['reason'] if exp else "Multiple factors"
             results.append({
                 'row_index': i + 1,
                 'prediction': 'Attrited' if is_attrited else 'Stayed',
-                'risk': confidence
+                'risk': confidence,
+                'key_factor': key_factor
             })
             
         save_db(records_db)
