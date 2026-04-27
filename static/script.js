@@ -169,9 +169,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 batchTbody.innerHTML = '';
                 data.results.forEach(r => {
                     const tr = document.createElement('tr');
-                    let factor = r.details ? r.details.reasons[0] : 'Stable Factors';
-                    if(!r.details) factor = '<span style="color:var(--success)">Stable Factors</span>';
-                    else factor = `<span style="color:var(--danger)">${factor}</span>`;
+                    const isAttrited = r.prediction === 'Attrited';
+                    const factor = `<span style="color:${isAttrited ? 'var(--danger)' : 'var(--success)'}">${r.key_factor || (isAttrited ? 'Multiple Risk Factors' : 'Stable Factors')}</span>`;
 
                     tr.innerHTML = `
                         <td>#${r.row_index}</td>
