@@ -1,5 +1,4 @@
-from flask import Flask, render_template, request, jsonify, session, redirect, url_for
-from auth import register_user, login_user, login_required
+from flask import Flask, render_template, request, jsonify, session
 import joblib
 import pandas as pd
 import numpy as np
@@ -9,7 +8,7 @@ import os
 from datetime import datetime
 
 app = Flask(__name__)
-app.secret_key = "super_secret_hr_key"  # keep as-is, already fixed string — good for session persistence
+app.secret_key = "super_secret_hr_key"
 
 models = {
     'ibm': {'model': None, 'scaler': None, 'features': {'numerical': [], 'categorical': [], 'cat_options': {}}},
@@ -60,85 +59,51 @@ def safe_float(val, default=0):
 
 def generate_explanation_and_solution(data):
     recommendations = []
-
-    # Normalize keys to be case-insensitive
-    data_lower = {str(k).lower(): v for k, v in data.items()}
-
-    def get(key, default=0):
-        return data_lower.get(key.lower(), default)
-
-    # Income check
-    inc = safe_float(get('MonthlyIncome', 5000), 5000)
+    
+    # Specific Data-Driven Logic
+    inc = safe_float(data.get('MonthlyIncome'), 5000)
     if inc < 3500:
         recommendations.append({
             "reason": f"Current income (${inc}) is significantly below the $4,000 threshold for this role.",
-            "solution": f"Immediately review {get('employee_name', 'Employee')}'s salary tier for a market-rate adjustment."
+            "solution": f"Immediately review {data.get('employee_name', 'Employee')}'s salary tier for a market-rate adjustment."
         })
-
-    # Overtime check
-    ot = str(get('OverTime', 'No')).strip()
-    if ot in ['Yes', '1', '1.0', 'yes', 'YES']:
+        
+    ot = data.get('OverTime', 'No')
+    if ot == 'Yes':
         recommendations.append({
             "reason": "Consistent overtime is increasing burnout risk.",
             "solution": "Redistribute workload or introduce a compensatory off-day policy."
         })
 
-    # Job satisfaction check
-    jsat = safe_float(get('JobSatisfaction', 3), 3)
+    jsat = safe_float(data.get('JobSatisfaction'), 3)
     if jsat <= 2:
         recommendations.append({
             "reason": f"Low Job Satisfaction score ({jsat}/4) detected.",
-            "solution": f"Conduct a focused role-fit assessment for {get('employee_name', 'the employee')}."
+            "solution": f"Conduct a focused role-fit assessment for {data.get('employee_name', 'the employee')}."
         })
 
-    # Promotion stagnation check
-    tenure = safe_float(get('YearsAtCompany', 5), 5)
-    promot = safe_float(get('YearsSinceLastPromotion', 1), 1)
+    tenure = safe_float(data.get('YearsAtCompany'), 5)
+    promot = safe_float(data.get('YearsSinceLastPromotion'), 1)
     if tenure > 3 and promot > 2:
         recommendations.append({
-            "reason": f"Has been at company for {int(tenure)} years without a promotion in {int(promot)} years.",
+            "reason": f"Has been at company for {tenure} years without a promotion in {promot} years.",
             "solution": "Establish a clear 12-month promotion track or vertical growth plan."
         })
 
-    # Distance check
-    dist = safe_float(get('DistanceFromHome', 1), 1)
+    dist = safe_float(data.get('DistanceFromHome'), 1)
     if dist > 20:
         recommendations.append({
-            "reason": f"Long-distance commute ({int(dist)}km) is likely impacting work-life balance.",
+            "reason": f"Long-distance commute ({dist}km) is likely impacting work-life balance.",
             "solution": "Transition to a hybrid model (3 days remote) to reduce travel fatigue."
         })
-
-    # Work-life balance check
-    wlb = safe_float(get('WorkLifeBalance', 3), 3)
-    if wlb <= 2:
-        recommendations.append({
-            "reason": f"Poor Work-Life Balance score ({wlb}/4) detected.",
-            "solution": "Introduce flexible working hours or remote work options."
-        })
-
-    # Environment satisfaction check
-    env = safe_float(get('EnvironmentSatisfaction', 3), 3)
-    if env <= 2:
-        recommendations.append({
-            "reason": f"Low Environment Satisfaction score ({env}/4) detected.",
-            "solution": "Address workplace conditions through team surveys and structural improvements."
-        })
-
-    # Age + low income = high risk
-    age = safe_float(get('Age', 30), 30)
-    if age < 30 and inc < 5000:
-        recommendations.append({
-            "reason": f"Young employee (age {int(age)}) with below-average income — high flight risk.",
-            "solution": "Offer accelerated growth tracks and mentorship programs."
-        })
-
+        
     # Default if no specific triggers
     if not recommendations:
         recommendations.append({
             "reason": "Multiple subtle demographic factors (Tenure, Age, Role complexity).",
             "solution": "Implement a proactive stay-interview to identify hidden engagement gaps."
         })
-
+        
     return recommendations
 
 @app.after_request
@@ -148,54 +113,14 @@ def add_header(response):
     response.headers["Expires"] = "-1"
     return response
 
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    if 'username' in session:
-        return redirect(url_for('home'))
-    error = None
-    if request.method == 'POST':
-        username = request.form.get('username', '').strip()
-        password = request.form.get('password', '')
-        ok, msg = login_user(username, password)
-        if ok:
-            session['username'] = username
-            return redirect(url_for('home'))
-        error = msg
-    return render_template('login.html', error=error)
-
-
-@app.route('/register', methods=['POST'])
-def register():
-    username = request.form.get('username', '').strip()
-    password = request.form.get('password', '')
-    confirm  = request.form.get('confirm_password', '')
-    if len(username) < 3:
-        return render_template('login.html', reg_error="Username must be at least 3 characters")
-    if password != confirm:
-        return render_template('login.html', reg_error="Passwords do not match")
-    if len(password) < 4:
-        return render_template('login.html', reg_error="Password must be at least 4 characters")
-    ok, msg = register_user(username, password)
-    if ok:
-        return render_template('login.html', reg_success="Account created! Please log in.")
-    return render_template('login.html', reg_error=msg)
-
-
-@app.route('/logout')
-def logout():
-    session.pop('username', None)
-    return redirect(url_for('login'))
-
-
 @app.route('/')
-@login_required
 def home():
+    # Pass IBM features to UI exactly as they were format
     return render_template('index.html', ibm_features=models['ibm']['features'], syn_features=models['syn']['features'])
 
 
 
 @app.route('/predict', methods=['POST'])
-@login_required
 def predict():
     try:
         data = request.json
@@ -263,7 +188,6 @@ def predict():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/upload_csv', methods=['POST'])
-@login_required
 def upload_csv():
     if 'file' not in request.files:
         return jsonify({'error': 'No file uploaded'}), 400
@@ -310,33 +234,6 @@ def upload_csv():
             
         df = df.fillna(0) # Fill all NaNs to prevent JSON errors
         
-        # FINAL FIX (handles nested models inside VotingClassifier)
-        try:
-            def fix_model(model):
-                if hasattr(model, "get_xgb_params"):
-                    # FORCE FIX (not just params)
-                    try:
-                        model.use_label_encoder = False
-                    except:
-                        pass
-                    try:
-                        model.gpu_id = -1
-                    except:
-                        pass
-
-                    try:
-                        model.predictor = "cpu_predictor"
-                    except:
-                        pass
-                
-                if hasattr(model, "estimators_"):
-                    for m in model.estimators_:
-                        fix_model(m)
-
-            fix_model(engine['model'])
-        except:
-            pass
-        
         preds = engine['model'].predict(X_scaled)
         probs = engine['model'].predict_proba(X_scaled)
         
@@ -363,12 +260,11 @@ def upload_csv():
             }
             records_db.append(record)
             
-            key_factor = exp[0]['reason'] if exp else "Multiple factors"
             results.append({
                 'row_index': i + 1,
                 'prediction': 'Attrited' if is_attrited else 'Stayed',
-                'risk': confidence,
-                'key_factor': key_factor
+                'risk': round(probs[i][1] * 100, 2),
+                'details': exp
             })
             
         save_db(records_db)
@@ -378,12 +274,10 @@ def upload_csv():
         return jsonify({'error': f"Failed to process CSV: {str(e)}"}), 500
 
 @app.route('/records', methods=['GET'])
-@login_required
 def get_records():
     return jsonify(records_db[::-1])
 
 @app.route('/clear_records', methods=['POST'])
-@login_required
 def clear_records():
     global records_db
     records_db = []
