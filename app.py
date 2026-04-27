@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify, session
+from flask import Flask, render_template, request, jsonify, session, redirect, url_for
 import joblib
 import pandas as pd
 import numpy as np
@@ -6,6 +6,7 @@ import traceback
 import json
 import os
 from datetime import datetime
+from auth import login_required
 
 app = Flask(__name__)
 app.secret_key = "super_secret_hr_key"
@@ -113,14 +114,56 @@ def add_header(response):
     response.headers["Expires"] = "-1"
     return response
 
-@app.route('/')
+@app.route('/dashboard')
+@login_required
 def home():
-    # Pass IBM features to UI exactly as they were format
-    return render_template('index.html', ibm_features=models['ibm']['features'], syn_features=models['syn']['features'])
+    return render_template(
+        'index.html',
+        ibm_features=models['ibm']['features'],
+        syn_features=models['syn']['features']
+    )
+
+@app.route('/', methods=['GET', 'POST'])
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+
+    if 'username' in session:
+        return redirect(url_for('home'))
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+
+        from auth import login_user
+        success, msg = login_user(username, password)
+
+        if success:
+            session['username'] = username
+            return redirect(url_for('home'))
+        else:
+            return render_template('login.html', error=msg)
+    return render_template('login.html')
+
+@app.route('/register', methods=['POST'])
+def register():
+    from auth import register_user
+    username = request.form.get('username', '').strip()
+    password = request.form.get('password', '')
+    confirm  = request.form.get('confirm_password', '')
+    if len(username) < 3:
+        return render_template('login.html', reg_error="Username must be at least 3 characters")
+    if password != confirm:
+        return render_template('login.html', reg_error="Passwords do not match")
+    if len(password) < 4:
+        return render_template('login.html', reg_error="Password must be at least 4 characters")
+    ok, msg = register_user(username, password)
+    if ok:
+        return render_template('login.html', reg_success="Account created! Please log in.")
+    return render_template('login.html', reg_error=msg)
 
 
 
 @app.route('/predict', methods=['POST'])
+@login_required
 def predict():
     try:
         data = request.json
@@ -155,6 +198,16 @@ def predict():
                     input_data.append(0.0)
             X_test = np.array([input_data])
             X_scaled = models['syn']['scaler'].transform(X_test)
+
+            def fix_xgb(model):
+                if hasattr(model, 'estimators_'):
+                    for m in model.estimators_:
+                        fix_xgb(m)
+                if type(model).__name__ == 'XGBClassifier':
+                    if hasattr(model, 'use_label_encoder'):
+                        del model.__dict__['use_label_encoder']
+
+            fix_xgb(models['syn']['model'])
             prediction = models['syn']['model'].predict(X_scaled)[0]
             probs = models['syn']['model'].predict_proba(X_scaled)[0]
             
@@ -188,6 +241,7 @@ def predict():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/upload_csv', methods=['POST'])
+@login_required
 def upload_csv():
     if 'file' not in request.files:
         return jsonify({'error': 'No file uploaded'}), 400
@@ -233,6 +287,17 @@ def upload_csv():
             return jsonify({'error': 'The uploaded CSV does not contain recognized HR features (e.g., Age, MonthlyIncome, JobSatisfaction). Please check your column headers.'}), 400
             
         df = df.fillna(0) # Fill all NaNs to prevent JSON errors
+
+        # Fix XGBoost compatibility for older saved models
+        def fix_xgb(model):
+            if hasattr(model, 'estimators_'):
+                for m in model.estimators_:
+                    fix_xgb(m)
+            if type(model).__name__ == 'XGBClassifier':
+                if hasattr(model, 'use_label_encoder'):
+                    del model.__dict__['use_label_encoder']
+
+        fix_xgb(engine['model'])
         
         preds = engine['model'].predict(X_scaled)
         probs = engine['model'].predict_proba(X_scaled)
@@ -264,7 +329,7 @@ def upload_csv():
                 'row_index': i + 1,
                 'prediction': 'Attrited' if is_attrited else 'Stayed',
                 'risk': round(probs[i][1] * 100, 2),
-                'details': exp
+                'key_factor': exp[0]['reason'] if exp else 'Multiple factors'
             })
             
         save_db(records_db)
@@ -274,15 +339,22 @@ def upload_csv():
         return jsonify({'error': f"Failed to process CSV: {str(e)}"}), 500
 
 @app.route('/records', methods=['GET'])
+@login_required
 def get_records():
     return jsonify(records_db[::-1])
 
 @app.route('/clear_records', methods=['POST'])
+@login_required
 def clear_records():
     global records_db
     records_db = []
     save_db(records_db)
     return jsonify({'success': True})
+
+@app.route('/logout')
+def logout():
+    session.pop('username', None)
+    return redirect(url_for('login'))
 
 if __name__ == '__main__':
     app.run(debug=True, port=8080)

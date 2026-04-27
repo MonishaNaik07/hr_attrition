@@ -15,7 +15,7 @@ def build_ensemble_model():
     """
     rf = RandomForestClassifier(n_estimators=100, random_state=42)
     gb = GradientBoostingClassifier(n_estimators=100, random_state=42)
-    gb2 = XGBClassifier(n_estimators=100, random_state=42, use_label_encoder=False, eval_metric='logloss')
+    gb2 = XGBClassifier(n_estimators=100, random_state=42, eval_metric='logloss')
     et = ExtraTreesClassifier(n_estimators=100, random_state=42)
     mlp = MLPClassifier(hidden_layer_sizes=(100, 50), max_iter=500, random_state=42)
     

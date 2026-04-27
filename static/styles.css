@@ -159,6 +159,41 @@ body {
   margin-top: auto;
 }
 
+.logout-btn {
+  width: 100%;
+  padding: 12px;
+  background: #f4f4f0; /* white from login */
+  color: #0a0a0a;      /* black text */
+  border: none;
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1rem;
+  letter-spacing: 0.2em;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.1s;
+}
+
+/* sliding hover effect (same as login) */
+.logout-btn::before {
+  content: '';
+  position: absolute;
+  left: -100%;
+  top: 0;
+  bottom: 0;
+  width: 100%;
+  background: rgba(0,0,0,0.1);
+  transition: left 0.3s;
+}
+
+.logout-btn:hover::before {
+  left: 0;
+}
+
+.logout-btn:active {
+  transform: scale(0.98);
+}
+
 /* ============================================================
    MAIN CONTENT
    ============================================================ */
