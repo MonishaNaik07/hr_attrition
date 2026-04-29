@@ -288,7 +288,8 @@ def predict_upload():
 
         probs  = model_data['ensemble'].predict_proba(X)[:, 1]
         labels = [risk_label(p) for p in probs]
-        preds  = ["At Risk" if p >= 0.5 else "Safe" for p in probs]
+        threshold = model_data.get('threshold', 0.65)
+        preds  = ["At Risk" if p >= threshold else "Safe" for p in probs]
 
         risk_dist = {
             "Critical": int(sum(1 for l in labels if l=="Critical")),
@@ -339,8 +340,12 @@ def predict_upload():
 
         predictions = []
         for i in range(len(df)):
-            row  = df.iloc[i]
             prob = float(probs[i])
+
+            if prob < 0.25:
+                continue   # ❌ DO NOT SHOW LOW RISK
+
+            row  = df.iloc[i]
             lbl  = labels[i]
             expl = build_explanation(row, prob, lbl)
             predictions.append({
@@ -379,12 +384,14 @@ def predict_upload():
                 "recommendations":     expl["recommendations"],
             })
 
-        at_risk_count = int(sum(1 for p in preds if p=="At Risk"))
+        visible_probs = [p for p in probs if p >= 0.25]
+
+        at_risk_count = int(sum(1 for p in visible_probs if p >= threshold))
         return jsonify({
             "summary": {
-                "total_employees": len(df),
+                "total_employees": len(visible_probs),
                 "at_risk":         at_risk_count,
-                "likely_stay":     len(df) - at_risk_count,
+                "likely_stay": len(visible_probs) - at_risk_count,
                 "attrition_rate":  round(at_risk_count/len(df)*100, 1),
                 "avg_risk_score":  round(float(np.mean(probs))*100, 1),
             },
