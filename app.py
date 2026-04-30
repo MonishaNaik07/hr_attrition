@@ -386,6 +386,8 @@ def sample_data():
     return jsonify({'error': 'Sample data not found'}), 404
 
 
+# ─── FIXED ───
+load_model()  # ← runs on gunicorn startup too
+
 if __name__ == '__main__':
-    load_model()
     app.run(debug=True, host='0.0.0.0', port=5050)
