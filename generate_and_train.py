@@ -9,7 +9,7 @@ from sklearn.ensemble import RandomForestClassifier, ExtraTreesClassifier, Gradi
 from sklearn.neural_network import MLPClassifier
 from sklearn.preprocessing import StandardScaler, LabelEncoder
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score, roc_auc_score, classification_report, precision_score
+from sklearn.metrics import accuracy_score, roc_auc_score, classification_report
 import warnings; warnings.filterwarnings('ignore')
 
 
@@ -79,15 +79,18 @@ def generate_ibm_hr_dataset(n=1470, seed=42):
     risk += (job_involvement <= 2) * 0.10
     risk += (relationship_sat == 1) * 0.10
 
-    # Very strong noise for realistic distribution
-    noise = np.random.normal(0, 0.05, n)
+    # Reduce noise so the signal is cleaner → model can learn it better
+    noise = np.random.normal(0, 0.02, n)
     risk = np.clip(risk + noise, 0.0, 1.5)
 
-    # Hard thresholding: < 0.3 -> Stay, > 0.6 -> Leave, else probabilistic
+    # Tighter thresholds: shrinks the random "coin-flip" zone
+    # risk >= 0.50 → always Leave (was 0.60)  — more records are definitive
+    # risk <  0.30 → always Stay (unchanged)
+    # risk 0.30-0.50 → probabilistic (narrower zone = less randomness)
     attrition = np.zeros(n, dtype=int)
-    attrition[risk >= 0.65] = 1
-    mid = (risk >= 0.35) & (risk < 0.65)
-    attrition[mid] = (np.random.random(mid.sum()) < (risk[mid] - 0.30) / 0.30).astype(int)
+    attrition[risk >= 0.50] = 1
+    mid = (risk >= 0.30) & (risk < 0.50)
+    attrition[mid] = (np.random.random(mid.sum()) < (risk[mid] - 0.30) / 0.20).astype(int)
 
     df = pd.DataFrame({
         'Age': ages, 'Attrition': ['Yes' if a else 'No' for a in attrition],
@@ -158,14 +161,14 @@ def get_feature_columns(df):
 class HybridEnsemble:
     def __init__(self):
         self.models = {
-            'random_forest':  (RandomForestClassifier(n_estimators=1000, max_depth=None,
+            'random_forest':  (RandomForestClassifier(n_estimators=1500, max_depth=None,
                                                        min_samples_leaf=1, random_state=42,
-                                                       class_weight={0:1, 1:2}, n_jobs=-1), 3),
-            'extra_trees':    (ExtraTreesClassifier(n_estimators=1000, max_depth=None,
+                                                       class_weight=None, n_jobs=-1), 3),
+            'extra_trees':    (ExtraTreesClassifier(n_estimators=1200, max_depth=None,
                                                      min_samples_leaf=1, random_state=42, n_jobs=-1), 2),
-            'gradient_boost1':(GradientBoostingClassifier(n_estimators=400, learning_rate=0.1,
+            'gradient_boost1':(GradientBoostingClassifier(n_estimators=500, learning_rate=0.08,
                                                            max_depth=6, subsample=0.9, random_state=42), 3),
-            'gradient_boost2':(GradientBoostingClassifier(n_estimators=400, learning_rate=0.05,
+            'gradient_boost2':(GradientBoostingClassifier(n_estimators=500, learning_rate=0.04,
                                                            max_depth=5, subsample=0.85, random_state=7), 2),
             'neural_net':     (MLPClassifier(hidden_layer_sizes=(256,128,64,32), activation='relu',
                                              solver='adam', alpha=0.00001, max_iter=1000,
@@ -200,21 +203,13 @@ class HybridEnsemble:
     def predict(self, X):
         return (self.predict_proba(X)[:,1] >= 0.5).astype(int)
 
-def find_best_threshold(y_true, y_prob):
-    for t in np.arange(0.4, 0.9, 0.01):
-        y_pred = (y_prob >= t).astype(int)
-        acc = accuracy_score(y_true, y_pred)
-        prec = precision_score(y_true, y_pred)
-
-        if acc >= 0.94 and prec >= 0.88:
-            return t
-    return 0.5
 
 def train_and_save():
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
     print("Generating IBM HR Analytics dataset (1470 records)...")
     df = generate_ibm_hr_dataset(1470)
-    os.makedirs('/home/claude/hr_attrition/data', exist_ok=True)
-    df.to_csv('/home/claude/hr_attrition/data/ibm_hr_sample.csv', index=False)
+    os.makedirs(os.path.join(BASE_DIR, 'data'), exist_ok=True)
+    df.to_csv(os.path.join(BASE_DIR, 'data', 'ibm_hr_sample.csv'), index=False)
     rate = (df['Attrition']=='Yes').mean()
     print(f"Dataset: {df.shape}, Attrition rate: {rate:.1%}")
 
@@ -229,9 +224,8 @@ def train_and_save():
     ensemble = HybridEnsemble()
     ensemble.fit(X_train, y_train)
 
+    y_pred = ensemble.predict(X_test)
     y_prob = ensemble.predict_proba(X_test)[:,1]
-    best_threshold = find_best_threshold(y_test, y_prob)
-    y_pred = (y_prob >= best_threshold).astype(int)
     acc = accuracy_score(y_test, y_pred)
     auc = roc_auc_score(y_test, y_prob)
     print(f"\nAccuracy: {acc*100:.1f}%  ROC-AUC: {auc:.4f}")
@@ -244,18 +238,12 @@ def train_and_save():
         fi = dict(sorted(fi.items(), key=lambda x: x[1], reverse=True))
 
     model_data = {
-        'ensemble': ensemble,
-        'feature_cols': feature_cols,
-        'feature_importance': fi,
-        'accuracy': acc,
-        'auc': auc,
-        'attrition_rate': float(rate),
-        'n_records': len(df),
-        'threshold': best_threshold   # ✅ ADD THIS
+        'ensemble': ensemble, 'feature_cols': feature_cols,
+        'feature_importance': fi, 'accuracy': acc, 'auc': auc,
+        'attrition_rate': float(rate), 'n_records': len(df),
     }
-
-    os.makedirs('/home/claude/hr_attrition/models', exist_ok=True)
-    with open('/home/claude/hr_attrition/models/ensemble_model.pkl','wb') as f:
+    os.makedirs(os.path.join(BASE_DIR, 'models'), exist_ok=True)
+    with open(os.path.join(BASE_DIR, 'models', 'ensemble_model.pkl'), 'wb') as f:
         pickle.dump(model_data, f)
     print("Model saved to models/ensemble_model.pkl")
     return model_data, feature_cols

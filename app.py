@@ -1,131 +1,66 @@
-# ─────────────────────────────────────────────
-# AttritionIQ — FULLY FIXED app.py
-# ─────────────────────────────────────────────
-
+"""
+HR Attrition Intelligence System - Flask Backend
+"""
 import sys, os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-
+# CRITICAL: import HybridEnsemble before any pickle.load so deserialization works
 from generate_and_train import HybridEnsemble
-import __main__; __main__.HybridEnsemble = HybridEnsemble
-
-from flask import Flask, request, jsonify, render_template, session, redirect, Response
+import __main__; __main__.HybridEnsemble = HybridEnsemble  # patch __main__ namespace
+from flask import Flask, request, jsonify, send_from_directory, render_template
 import pandas as pd
 import numpy as np
-import pickle, io
+import pickle, os, io, json
 from sklearn.preprocessing import LabelEncoder
+import warnings; warnings.filterwarnings('ignore')
 
-app = Flask(__name__, template_folder='templates')
-app.secret_key = os.environ.get("SECRET_KEY", "attriq-dev-secret-change-in-prod")
-app.config['SESSION_COOKIE_SAMESITE'] = "Lax"
-app.config['SESSION_COOKIE_SECURE'] = False
+app = Flask(__name__, template_folder='templates', static_folder='static')
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
 
-USERS = {
-    "admin":      {"password": "admin123",  "role": "Administrator"},
-    "hr_manager": {"password": "hr2024",    "role": "HR Manager"},
-    "analyst":    {"password": "data2024",  "role": "Data Analyst"},
-}
-
-MODEL_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "models", "ensemble_model.pkl")
+# ─── Load Model ──────────────────────────────────────────────────────────────
+MODEL_PATH = os.path.join(os.path.dirname(__file__), 'models', 'ensemble_model.pkl')
 model_data = None
 
 def load_model():
     global model_data
-    with open(MODEL_PATH, "rb") as f:
-        model_data = pickle.load(f)
-    print(f"✅ Model loaded — {len(model_data['feature_cols'])} features")
+    try:
+        with open(MODEL_PATH, 'rb') as f:
+            model_data = pickle.load(f)
+        print(f"Model loaded. Accuracy: {model_data['accuracy']*100:.1f}%")
+    except Exception as e:
+        print(f"Warning: Could not load model: {e}")
 
-load_model()
 
-@app.route('/')
-def index():
-    return render_template('index copy.html')
-
-@app.route('/dashboard')
-def dashboard():
-    if not session.get('user'):
-        return redirect('/')
-    return render_template('dashboard copy.html')
-
-@app.route('/api/login', methods=['POST'])
-def login():
-    data = request.get_json()
-    user = USERS.get(data.get('username'))
-    if user and user['password'] == data.get('password'):
-        session['user'] = data.get('username')
-        session['role'] = user['role']
-        return jsonify({"success": True, "role": user['role']})
-    return jsonify({"success": False}), 401
-
-@app.route('/api/logout', methods=['POST'])
-def logout():
-    session.clear()
-    return jsonify({"success": True})
-
-@app.route('/api/model-stats')
-def model_stats():
-    fi = model_data.get('feature_importance', {})
-    top_features = [
-        {"name": k.replace("_", " ").title(), "importance": round(v * 100, 1)}
-        for k, v in list(fi.items())[:10]
-    ]
-    return jsonify({
-        "accuracy":     round(model_data['accuracy'] * 100, 1),
-        "auc":          round(model_data.get('auc', 0.91), 3),
-        "top_features": top_features,
-    })
-
-@app.route('/api/sample-data')
-def sample_data():
-    sample_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "ibm_hr_sample.csv")
-    df = pd.read_csv(sample_path)
-    if 'Attrition' in df.columns:
-        df = df.drop(columns=['Attrition'])
-    out = io.StringIO()
-    df.head(50).to_csv(out, index=False)
-    return Response(out.getvalue(), mimetype='text/csv',
-                    headers={"Content-Disposition": "attachment; filename=sample_employees.csv"})
-
-# ── Feature pipeline — EXACTLY matches generate_and_train.py ──────────
-
-def encode_columns(df):
+# ─── Feature Engineering (must match training) ───────────────────────────────
+def engineer_features(df):
     df = df.copy()
     le = LabelEncoder()
-    cat_cols = ['BusinessTravel','Department','EducationField','Gender','JobRole','MaritalStatus','Over18']
-    for col in cat_cols:
+    for col in ['BusinessTravel','Department','EducationField','Gender','JobRole','MaritalStatus','Over18']:
         if col in df.columns:
             df[col+'_enc'] = le.fit_transform(df[col].astype(str))
         else:
             df[col+'_enc'] = 0
-    df['OverTime_enc'] = (df['OverTime'].astype(str) == 'Yes').astype(int) if 'OverTime' in df.columns else 0
-    return df
-
-def engineer_features(df):
-    df = df.copy()
-    def col(name, default=0):
-        return df[name].astype(float) if name in df.columns else pd.Series([float(default)]*len(df), index=df.index)
-
-    ot  = df['OverTime_enc'].astype(float) if 'OverTime_enc' in df.columns else pd.Series([0.0]*len(df), index=df.index)
-    mi  = col('MonthlyIncome', 5000)
-    age = col('Age', 35)
-    yac = col('YearsAtCompany', 5).replace(0, 0.5)
-    ysp = col('YearsSinceLastPromotion', 0).replace(0, 0.5)
-    ysm = col('YearsWithCurrManager', 0).replace(0, 0.5)
-    ncw = col('NumCompaniesWorked', 0)
-    js  = col('JobSatisfaction', 3)
-    es  = col('EnvironmentSatisfaction', 3)
-    wlb = col('WorkLifeBalance', 3)
-    rs  = col('RelationshipSatisfaction', 3)
-    so  = col('StockOptionLevel', 0)
-    tty = col('TrainingTimesLastYear', 2)
-    dfh = col('DistanceFromHome', 5)
-    jl  = col('JobLevel', 2)
-    ji  = col('JobInvolvement', 3)
-
+    ot = (df['OverTime']=='Yes').astype(int) if 'OverTime' in df.columns else pd.Series(0, index=df.index)
+    df['OverTime_enc'] = ot
+    mi  = df.get('MonthlyIncome', pd.Series(5000, index=df.index))
+    age = df.get('Age', pd.Series(35, index=df.index))
+    yac = df.get('YearsAtCompany', pd.Series(5, index=df.index)).replace(0,0.5)
+    ysp = df.get('YearsSinceLastPromotion', pd.Series(1, index=df.index)).replace(0,0.5)
+    ysm = df.get('YearsWithCurrManager', pd.Series(3, index=df.index)).replace(0,0.5)
+    ncw = df.get('NumCompaniesWorked', pd.Series(2, index=df.index))
+    js  = df.get('JobSatisfaction', pd.Series(3, index=df.index))
+    es  = df.get('EnvironmentSatisfaction', pd.Series(3, index=df.index))
+    wlb = df.get('WorkLifeBalance', pd.Series(3, index=df.index))
+    rs  = df.get('RelationshipSatisfaction', pd.Series(3, index=df.index))
+    so  = df.get('StockOptionLevel', pd.Series(0, index=df.index))
+    tty = df.get('TrainingTimesLastYear', pd.Series(2, index=df.index))
+    dfh = df.get('DistanceFromHome', pd.Series(5, index=df.index))
+    jl  = df.get('JobLevel', pd.Series(2, index=df.index))
+    ji  = df.get('JobInvolvement', pd.Series(3, index=df.index))
     df['IncomePerYear']          = mi / yac
     df['Age_Tenure_ratio']       = age / yac
     df['YearsSincePromo_ratio']  = ysp / yac
     df['YearsWithManager_ratio'] = ysm / yac
-    df['NumCompanies_Age']       = ncw / age.replace(0, 1)
+    df['NumCompanies_Age']       = ncw / age
     df['OverTime_JobSat']        = ot * js
     df['OverTime_WLB']           = ot * wlb
     df['OverTime_EnvSat']        = ot * es
@@ -133,279 +68,324 @@ def engineer_features(df):
     df['StockOption_Income']     = so * mi / 10000
     df['Satisfaction_Score']     = (js + es + wlb + rs) / 4
     df['TotalSatisfaction']      = js + es + wlb + rs + ji
-    df['Income_Age_ratio']       = mi / age.replace(0, 1)
-    df['DistanceIncome_ratio']   = dfh / (mi / 1000).replace(0, 0.001)
+    df['Income_Age_ratio']       = mi / age
+    df['DistanceIncome_ratio']   = dfh / (mi / 1000)
     df['JobLevel_Income']        = jl * mi
     df['TrainingLastYear_sat']   = tty * js
     df['Age_sq']                 = age ** 2
     df['Income_sq']              = (mi / 1000) ** 2
     return df
 
-def risk_label(p):
-    if p >= 0.75: return "Critical"
-    if p >= 0.50: return "High"
-    if p >= 0.25: return "Medium"
-    return "Low"
 
-RECOMMENDATIONS = {
-    "Critical": [
-        {"priority":"High",   "action":"Immediate Retention Conversation",
-         "detail":"Schedule a 1-on-1 with HR leadership within 48 hours. Co-create a personalised retention plan."},
-        {"priority":"High",   "action":"Emergency Compensation Review",
-         "detail":"Conduct immediate market benchmarking and adjust if below-market. Consider a spot bonus."},
-        {"priority":"High",   "action":"Reduce Overtime Immediately",
-         "detail":"Redistribute workload to bring overtime below 10%. Burnout is the #1 flight-risk driver."},
-        {"priority":"Medium", "action":"Clear Promotion Roadmap",
-         "detail":"Provide a written, time-bound promotion plan with measurable milestones within 2 weeks."},
-    ],
-    "High": [
-        {"priority":"High",   "action":"Workload & Role Realignment",
-         "detail":"Review role fit and project load. Consider a lateral move to a team that better suits career goals."},
-        {"priority":"High",   "action":"Flexible Work Arrangement",
-         "detail":"Offer remote/hybrid schedule to ease commute stress and improve work-life balance."},
-        {"priority":"Medium", "action":"Manager Relationship Mediation",
-         "detail":"Facilitate a structured feedback session between employee and direct manager."},
-        {"priority":"Medium", "action":"Stock Option or Retention Bonus",
-         "detail":"Award stock options or a 12-month retention bonus to create a financial incentive."},
-    ],
-    "Medium": [
-        {"priority":"Medium", "action":"Engagement Program Enrollment",
-         "detail":"Enrol in mentorship or employee resource group to strengthen belonging and career development."},
-        {"priority":"Medium", "action":"Skill Development Sponsorship",
-         "detail":"Sponsor a certification, course, or conference aligned with career aspirations."},
-        {"priority":"Low",    "action":"Monthly Manager Check-ins",
-         "detail":"Establish structured monthly 1-on-1s to proactively track satisfaction and growth."},
-    ],
-    "Low": [
-        {"priority":"Low","action":"Recognition & Appreciation",
-         "detail":"Acknowledge contributions in team meetings and through formal recognition programs."},
-        {"priority":"Low","action":"Annual Career Growth Conversation",
-         "detail":"Hold a yearly career development review to maintain long-term engagement."},
-    ],
-}
+def get_feature_columns(df):
+    drop = ['Attrition','EmployeeCount','EmployeeNumber','Over18','StandardHours',
+            'BusinessTravel','Department','EducationField','Gender','JobRole','MaritalStatus','OverTime']
+    if model_data:
+        return [c for c in model_data['feature_cols'] if c in df.columns]
+    return [c for c in df.columns if c not in drop]
 
-def build_explanation(row, prob, label):
-    reasons, feature_scores = [], {}
-    js  = int(row.get('JobSatisfaction',  3))
-    es  = int(row.get('EnvironmentSatisfaction', 3))
-    wlb = int(row.get('WorkLifeBalance', 3))
-    rs  = int(row.get('RelationshipSatisfaction', 3))
-    mi  = float(row.get('MonthlyIncome', 5000))
-    yac = int(row.get('YearsAtCompany', 5))
-    so  = int(row.get('StockOptionLevel', 1))
-    dist= int(row.get('DistanceFromHome', 5))
-    ncw = int(row.get('NumCompaniesWorked', 1))
-    bt  = str(row.get('BusinessTravel', 'Non-Travel'))
-    ms  = str(row.get('MaritalStatus', ''))
-    ot  = str(row.get('OverTime', 'No'))
 
-    if ot == 'Yes':
-        reasons.append("Working overtime — top predictor of burnout and departure")
-        feature_scores['OverTime'] = round(min(prob * 120, 95), 1)
+# ─── Explainability ──────────────────────────────────────────────────────────
+def generate_explanation(row, risk_prob):
+    reasons = []
+    recs = []
+
+    ot  = row.get('OverTime','No') == 'Yes'
+    js  = int(row.get('JobSatisfaction',3))
+    es  = int(row.get('EnvironmentSatisfaction',3))
+    wlb = int(row.get('WorkLifeBalance',3))
+    rs  = int(row.get('RelationshipSatisfaction',3))
+    so  = int(row.get('StockOptionLevel',0))
+    ms  = row.get('MaritalStatus','Married')
+    yac = float(row.get('YearsAtCompany',5))
+    ncw = int(row.get('NumCompaniesWorked',2))
+    dfh = int(row.get('DistanceFromHome',5))
+    bt  = row.get('BusinessTravel','Travel_Rarely')
+    jl  = int(row.get('JobLevel',2))
+    mi  = float(row.get('MonthlyIncome',5000))
+    ji  = int(row.get('JobInvolvement',3))
+    ysp = float(row.get('YearsSinceLastPromotion',1))
+
+    if ot:
+        reasons.append("Working overtime – linked to burnout and disengagement")
+        recs.append({"priority":"High","action":"Review workload and overtime policies","detail":"Redistribute tasks or hire additional staff to reduce overtime burden."})
     if js <= 2:
-        reasons.append(f"Low job satisfaction ({js}/4)")
-        feature_scores['Job Sat.'] = round((3-js)/3*90, 1)
+        reasons.append(f"Low job satisfaction (score: {js}/4)")
+        recs.append({"priority":"High","action":"Conduct 1:1 satisfaction review","detail":"Identify specific pain points through structured feedback sessions."})
     if es <= 2:
-        reasons.append(f"Low environment satisfaction ({es}/4)")
-        feature_scores['Env Sat.'] = round((3-es)/3*85, 1)
+        reasons.append(f"Poor workplace environment satisfaction (score: {es}/4)")
+        recs.append({"priority":"High","action":"Improve work environment","detail":"Address physical workspace, team dynamics, and management style."})
     if wlb <= 2:
-        reasons.append(f"Poor work-life balance ({wlb}/4)")
-        feature_scores['WLB'] = round((3-wlb)/3*80, 1)
-    if rs <= 2:
-        reasons.append(f"Low relationship satisfaction ({rs}/4)")
-        feature_scores['Rel Sat.'] = round((3-rs)/3*70, 1)
-    if mi < 3000:
-        reasons.append(f"Monthly income (${int(mi):,}) is below retention threshold")
-        feature_scores['Income'] = round(min((5000-mi)/5000*80, 80), 1)
+        reasons.append(f"Poor work-life balance (score: {wlb}/4)")
+        recs.append({"priority":"High","action":"Implement flexible work arrangements","detail":"Offer remote work options or flexible scheduling."})
     if so == 0:
-        reasons.append("No stock options — low long-term financial commitment")
-        feature_scores['Stock'] = 55.0
-    if yac <= 1:
-        reasons.append(f"Very short tenure ({yac}y) — highest flight risk window")
-        feature_scores['Tenure'] = 70.0
-    if dist >= 20:
-        reasons.append(f"Long commute ({dist} km) impacts daily satisfaction")
-        feature_scores['Commute'] = round(dist/29*65, 1)
-    if bt == 'Travel_Frequently':
-        reasons.append("Frequent travel creates sustained work-life strain")
-        feature_scores['Travel'] = 60.0
-    if ncw >= 5:
-        reasons.append(f"High job mobility ({ncw} prior companies)")
-        feature_scores['Mobility'] = round(min(ncw/9*65, 65), 1)
+        reasons.append("No stock option allocation")
+        recs.append({"priority":"Medium","action":"Review compensation package","detail":"Consider stock options or equity participation to increase retention."})
     if ms == 'Single':
-        reasons.append("Single — statistically higher geographic mobility")
-        feature_scores['Marital'] = 40.0
+        reasons.append("Single employees show higher mobility tendency")
+        recs.append({"priority":"Low","action":"Strengthen team and community engagement","detail":"Social programs and team-building can improve belonging."})
+    if yac <= 1:
+        reasons.append(f"Very short tenure ({yac:.0f} year) – early-career flight risk")
+        recs.append({"priority":"High","action":"Activate onboarding retention program","detail":"Assign mentor, clear 90-day milestones, and early career pathing."})
+    if ncw >= 5:
+        reasons.append(f"Worked at {ncw} companies – high job-hopping pattern")
+        recs.append({"priority":"Medium","action":"Offer long-term career development plan","detail":"Define a multi-year growth roadmap to reduce flight risk."})
+    if dfh >= 20:
+        reasons.append(f"Long commute ({dfh} km from home)")
+        recs.append({"priority":"Medium","action":"Offer remote/hybrid flexibility","detail":"Partial remote work could significantly reduce commute stress."})
+    if bt == 'Travel_Frequently':
+        reasons.append("Frequent business travel adds to burnout risk")
+        recs.append({"priority":"Medium","action":"Review travel requirements","detail":"Minimize non-essential travel; use video conferencing where possible."})
+    if jl == 1:
+        reasons.append("Entry-level position – limited advancement visibility")
+        recs.append({"priority":"Medium","action":"Create clear promotion pathway","detail":"Set explicit milestones for advancement from entry-level roles."})
+    if mi < 3000:
+        reasons.append(f"Below-market compensation (${mi:,.0f}/month)")
+        recs.append({"priority":"High","action":"Conduct salary benchmarking review","detail":"Compare against market rates and adjust compensation accordingly."})
+    if ji <= 2:
+        reasons.append(f"Low job involvement (score: {ji}/4)")
+        recs.append({"priority":"Medium","action":"Increase role engagement","detail":"Assign stretch projects and increase decision-making autonomy."})
+    if ysp >= 4:
+        reasons.append(f"No promotion in {ysp:.0f} years")
+        recs.append({"priority":"Medium","action":"Review promotion eligibility","detail":"Evaluate employee for promotion or role expansion opportunity."})
 
     if not reasons:
-        reasons.append("No significant risk factors — employee profile is stable")
+        reasons.append("Profile shows relatively low attrition risk indicators")
+        recs.append({"priority":"Low","action":"Maintain engagement","detail":"Regular check-ins and recognition programs to sustain performance."})
 
-    feature_scores['Model Score'] = round(prob*100, 1)
-    feature_scores = dict(sorted(feature_scores.items(), key=lambda x: x[1], reverse=True)[:7])
-
-    dept = row.get('Department','their department')
-    role = row.get('JobRole','their role')
-    ot_str = "working overtime" if ot == 'Yes' else "not working overtime"
-    sat_avg = round((js+es+wlb+rs)/4, 1)
-    if reasons[0].startswith("No significant"):
-        explanation = (f"Employee in {dept} ({role}) has a {round(prob*100,1)}% predicted attrition probability "
-                       f"({label} risk). Profile shows stable satisfaction ({sat_avg}/4), "
-                       f"{yac} year(s) of tenure, and positive retention indicators.")
+    risk_label = "Critical" if risk_prob >= 0.75 else ("High" if risk_prob >= 0.55 else ("Medium" if risk_prob >= 0.35 else "Low"))
+    explanation = f"This employee shows a {risk_label.lower()} attrition risk ({risk_prob*100:.0f}%). "
+    if len(reasons) > 1:
+        explanation += f"Key factors include: {'; '.join(reasons[:3])}."
     else:
-        explanation = (f"Employee in {dept} ({role}) has a {round(prob*100,1)}% predicted attrition probability "
-                       f"({label} risk). They are {ot_str} with overall satisfaction {sat_avg}/4 "
-                       f"and {yac} year(s) at company. Key drivers: {reasons[0].lower()}.")
+        explanation += reasons[0] + "."
 
-    return {
-        "explanation":     explanation,
-        "reasons":         reasons[:5],
-        "feature_scores":  feature_scores,
-        "recommendations": RECOMMENDATIONS.get(label, RECOMMENDATIONS["Low"]),
-    }
+    return {"risk_label": risk_label, "explanation": explanation, "reasons": reasons[:5], "recommendations": recs[:4]}
+
+
+# ─── Routes ───────────────────────────────────────────────────────────────────
+@app.route('/')
+def index():
+    return send_from_directory('templates', 'index.html')
+
+
+@app.route('/dashboard')
+def dashboard():
+    return send_from_directory('templates', 'dashboard.html')
+
+
+@app.route('/api/login', methods=['POST'])
+def login():
+    data = request.get_json()
+    username = data.get('username','')
+    password = data.get('password','')
+    # Demo credentials
+    users = {'admin':'admin123','hr_manager':'hr2024','analyst':'data2024'}
+    if username in users and users[username] == password:
+        return jsonify({'success': True, 'token': 'demo_token_2024', 'user': username,
+                        'role': 'HR Manager' if username == 'hr_manager' else 'Administrator'})
+    return jsonify({'success': False, 'message': 'Invalid credentials'}), 401
+
+
+@app.route('/api/model-stats', methods=['GET'])
+def model_stats():
+    if not model_data:
+        return jsonify({'error': 'Model not loaded'}), 500
+    fi = model_data.get('feature_importance', {})
+    top_features = list(fi.items())[:15]
+    return jsonify({
+        'accuracy': round(model_data['accuracy'] * 100, 1),
+        'auc': round(model_data['auc'], 4),
+        'attrition_rate': round(model_data['attrition_rate'] * 100, 1),
+        'n_records': model_data['n_records'],
+        'n_features': len(model_data['feature_cols']),
+        'models': ['Random Forest (×3)', 'Extra Trees (×2)', 'Gradient Boost v1 (×3)',
+                   'Gradient Boost v2 (×2)', 'Neural Network (×1)'],
+        'top_features': [{'name': k, 'importance': round(v*100, 2)} for k,v in top_features]
+    })
+
 
 @app.route('/api/predict/upload', methods=['POST'])
 def predict_upload():
-    if not session.get('user'):
-        return jsonify({"error": "Unauthorized"}), 401
+    if not model_data:
+        return jsonify({'error': 'Model not loaded'}), 500
+
     if 'file' not in request.files:
-        return jsonify({"error": "No file uploaded"}), 400
+        return jsonify({'error': 'No file uploaded'}), 400
+
+    f = request.files['file']
+    if not f.filename.endswith('.csv'):
+        return jsonify({'error': 'Please upload a CSV file'}), 400
+
     try:
-        df = pd.read_csv(request.files['file'])
-        print(f"CSV loaded: {df.shape}")
+        df = pd.read_csv(io.StringIO(f.read().decode('utf-8')))
     except Exception as e:
-        return jsonify({"error": f"Cannot read CSV: {e}"}), 400
+        return jsonify({'error': f'CSV parse error: {e}'}), 400
 
-    try:
-        df_feat = encode_columns(df)
-        df_feat = engineer_features(df_feat)
+    if len(df) == 0:
+        return jsonify({'error': 'Empty CSV file'}), 400
 
-        feature_cols = model_data['feature_cols']
-        for c in feature_cols:
-            if c not in df_feat.columns:
-                df_feat[c] = 0
+    # Keep original for display
+    df_orig = df.copy()
 
-        X = df_feat[feature_cols].fillna(0)
-        print(f"Prediction matrix: {X.shape}")
+    # Engineer features
+    df_feat = engineer_features(df)
+    # use EXACT training columns
+    feat_cols = model_data['feature_cols']
 
-        probs  = model_data['ensemble'].predict_proba(X)[:, 1]
-        labels = [risk_label(p) for p in probs]
-        threshold = model_data.get('threshold', 0.65)
-        preds  = ["At Risk" if p >= threshold else "Safe" for p in probs]
+    # add missing cols
+    for col in feat_cols:
+        if col not in df_feat.columns:
+            df_feat[col] = 0
 
-        risk_dist = {
-            "Critical": int(sum(1 for l in labels if l=="Critical")),
-            "High":     int(sum(1 for l in labels if l=="High")),
-            "Medium":   int(sum(1 for l in labels if l=="Medium")),
-            "Low":      int(sum(1 for l in labels if l=="Low")),
-        }
+    # keep only trained columns in correct order
+    X = df_feat[feat_cols]
 
-        df_temp = df.copy()
-        df_temp['_prob'] = probs
-        df_temp['_pred'] = preds
+    # ===== FIX START =====
+    X = X.replace([np.inf, -np.inf], np.nan)
+    X = X.fillna(0)
+    X = X.clip(-1e6, 1e6)
+    # ===== FIX END =====
 
-# Age band analysis (replaces department chart)
-        df_temp['_age_band'] = pd.cut(
-            df['Age'],
-            bins=[18, 25, 32, 40, 50, 100],
-            labels=['18-25', '26-32', '33-40', '41-50', '51+']
-        ).astype(str)
-        dept_analysis = []
-        for band, grp in df_temp.groupby('_age_band'):
-            ar = int((grp['_pred'] == 'At Risk').sum())
-            total = len(grp)
-            dept_analysis.append({
-                "department": band,
-                "total": total,
-                "at_risk": ar,
-                "stay": total - ar,
-                "risk_pct": round(ar / total * 100, 1)
-            })
-        dept_analysis.sort(key=lambda x: x['department'])
+    ensemble = model_data['ensemble']
+    probs = ensemble.predict_proba(X)[:, 1]
+    preds = (probs >= 0.5).astype(int)
 
-        # Job level analysis (replaces role chart)
-        role_analysis = []
-        for level, grp in df_temp.groupby('JobLevel'):
-            ar = int((grp['_pred'] == 'At Risk').sum())
-            total = len(grp)
-            role_analysis.append({
-                "role": f"Level {int(level)}",
-                "total": total,
-                "at_risk": ar,
-                "risk_pct": round(ar / total * 100, 1)
-            })
-        role_analysis.sort(key=lambda x: x['risk_pct'], reverse=True)
+    results = []
+    dept_stats = {}
+    role_stats = {}
 
-        fi = model_data.get('feature_importance', {})
-        top_features = [{"name":k.replace("_"," ").title(),"importance":round(v*100,1)}
-                        for k,v in list(fi.items())[:10]]
+    for i, (idx, row) in enumerate(df_orig.iterrows()):
+        prob = float(probs[i])
+        pred = int(preds[i])
+        expl = generate_explanation(row.to_dict(), prob)
 
-        predictions = []
-        for i in range(len(df)):
-            prob = float(probs[i])
+        emp_id = str(row.get('EmployeeNumber', i+1))
+        name = row.get('Name', f'Employee {emp_id}')
+        dept = str(row.get('Department', 'Unknown'))
+        role = str(row.get('JobRole', 'Unknown'))
+        age  = int(row.get('Age', 0))
+        mi   = float(row.get('MonthlyIncome', 0))
+        yac  = float(row.get('YearsAtCompany', 0))
+        ot   = str(row.get('OverTime','No'))
 
-            if prob < 0.25:
-                continue   # ❌ DO NOT SHOW LOW RISK
-
-            row  = df.iloc[i]
-            lbl  = labels[i]
-            expl = build_explanation(row, prob, lbl)
-            predictions.append({
-                "employee_id":         int(row.get('EmployeeNumber', i+1)),
-                "name":                f"Employee {int(row.get('EmployeeNumber', i+1))}",
-                "department":          str(row.get('Department','—')),
-                "job_role":            str(row.get('JobRole','—')),
-                "age":                 int(row.get('Age', 0)),
-                "monthly_income":      int(row.get('MonthlyIncome', 0)),
-                "years_at_company":    int(row.get('YearsAtCompany', 0)),
-                "overtime":            str(row.get('OverTime','No')),
-                "gender":              str(row.get('Gender','—')),
-                "marital_status":      str(row.get('MaritalStatus','—')),
-                "education":           int(row.get('Education', 0)),
-                "education_field":     str(row.get('EducationField','—')),
-                "job_level":           int(row.get('JobLevel', 1)),
-                "total_working_years": int(row.get('TotalWorkingYears', 0)),
-                "years_since_promo":   int(row.get('YearsSinceLastPromotion', 0)),
-                "years_with_manager":  int(row.get('YearsWithCurrManager', 0)),
-                "business_travel":     str(row.get('BusinessTravel','—')),
-                "stock_option":        int(row.get('StockOptionLevel', 0)),
-                "percent_salary_hike": int(row.get('PercentSalaryHike', 0)),
-                "performance_rating":  int(row.get('PerformanceRating', 3)),
-                "training_times":      int(row.get('TrainingTimesLastYear', 0)),
-                "job_satisfaction":    int(row.get('JobSatisfaction', 3)),
-                "env_satisfaction":    int(row.get('EnvironmentSatisfaction', 3)),
-                "work_life_balance":   int(row.get('WorkLifeBalance', 3)),
-                "relationship_satisfaction": int(row.get('RelationshipSatisfaction', 3)),
-                "job_involvement":     int(row.get('JobInvolvement', 3)),
-                "attrition_probability": round(prob*100, 1),
-                "risk_label":          lbl,
-                "prediction":          preds[i],
-                "explanation":         expl["explanation"],
-                "reasons":             expl["reasons"],
-                "feature_scores":      expl["feature_scores"],
-                "recommendations":     expl["recommendations"],
-            })
-
-        visible_probs = [p for p in probs if p >= 0.25]
-
-        at_risk_count = int(sum(1 for p in visible_probs if p >= threshold))
-        return jsonify({
-            "summary": {
-                "total_employees": len(visible_probs),
-                "at_risk":         at_risk_count,
-                "likely_stay": len(visible_probs) - at_risk_count,
-                "attrition_rate":  round(at_risk_count/len(df)*100, 1),
-                "avg_risk_score":  round(float(np.mean(probs))*100, 1),
+        result = {
+            'employee_id': emp_id,
+            'name': name,
+            'department': dept,
+            'job_role': role,
+            'age': age,
+            'monthly_income': mi,
+            'years_at_company': yac,
+            'overtime': ot,
+            'attrition_probability': round(prob * 100, 1),
+            'prediction': 'At Risk' if pred == 1 else 'Likely to Stay',
+            'risk_label': expl['risk_label'],
+            'explanation': expl['explanation'],
+            'reasons': expl['reasons'],
+            'recommendations': expl['recommendations'],
+            # Full profile
+            'gender': str(row.get('Gender','N/A')),
+            'marital_status': str(row.get('MaritalStatus','N/A')),
+            'education': int(row.get('Education',0)),
+            'education_field': str(row.get('EducationField','N/A')),
+            'job_level': int(row.get('JobLevel',0)),
+            'job_satisfaction': int(row.get('JobSatisfaction',0)),
+            'env_satisfaction': int(row.get('EnvironmentSatisfaction',0)),
+            'work_life_balance': int(row.get('WorkLifeBalance',0)),
+            'relationship_satisfaction': int(row.get('RelationshipSatisfaction',0)),
+            'job_involvement': int(row.get('JobInvolvement',0)),
+            'stock_option': int(row.get('StockOptionLevel',0)),
+            'num_companies': int(row.get('NumCompaniesWorked',0)),
+            'total_working_years': int(row.get('TotalWorkingYears',0)),
+            'training_times': int(row.get('TrainingTimesLastYear',0)),
+            'years_since_promo': float(row.get('YearsSinceLastPromotion',0)),
+            'years_with_manager': float(row.get('YearsWithCurrManager',0)),
+            'distance_from_home': int(row.get('DistanceFromHome',0)),
+            'business_travel': str(row.get('BusinessTravel','N/A')),
+            'percent_salary_hike': int(row.get('PercentSalaryHike',0)),
+            'performance_rating': int(row.get('PerformanceRating',0)),
+            'feature_scores': {
+                'Job Satisfaction': round((5 - int(row.get('JobSatisfaction',3))) / 4 * 100),
+                'Env Satisfaction': round((5 - int(row.get('EnvironmentSatisfaction',3))) / 4 * 100),
+                'Work-Life Balance': round((5 - int(row.get('WorkLifeBalance',3))) / 4 * 100),
+                'Overtime':         100 if row.get('OverTime','No') == 'Yes' else 0,
+                'Stock Options':    round((4 - int(row.get('StockOptionLevel',0))) / 4 * 100),
+                'Short Tenure':     round(max(0, (3 - float(row.get('YearsAtCompany',5))) / 3 * 100)),
+                'Low Salary':       round(max(0, (3000 - float(row.get('MonthlyIncome',5000))) / 3000 * 100)),
+                'Commute Burden':   round(min(100, int(row.get('DistanceFromHome',5)) / 29 * 100)),
             },
-            "predictions":         predictions,
-            "risk_distribution":   risk_dist,
-            "department_analysis": dept_analysis,
-            "role_analysis":       role_analysis,
-            "top_features":        top_features,
-            "model_accuracy":      round(model_data['accuracy']*100, 1),
+        }
+        results.append(result)
+
+        # Dept stats
+        if dept not in dept_stats:
+            dept_stats[dept] = {'total': 0, 'at_risk': 0, 'prob_sum': 0}
+        dept_stats[dept]['total'] += 1
+        dept_stats[dept]['at_risk'] += pred
+        dept_stats[dept]['prob_sum'] += prob
+
+        # Role stats
+        if role not in role_stats:
+            role_stats[role] = {'total': 0, 'at_risk': 0}
+        role_stats[role]['total'] += 1
+        role_stats[role]['at_risk'] += pred
+
+    total = len(results)
+    at_risk_count = sum(1 for r in results if r['prediction'] == 'At Risk')
+    avg_risk = np.mean(probs) * 100
+
+    dept_chart = []
+    for dept, s in dept_stats.items():
+        dept_chart.append({
+            'department': dept,
+            'total': s['total'],
+            'at_risk': s['at_risk'],
+            'stay': s['total'] - s['at_risk'],
+            'risk_pct': round(s['at_risk']/s['total']*100, 1),
+            'avg_prob': round(s['prob_sum']/s['total']*100, 1)
         })
 
-    except Exception as e:
-        import traceback; traceback.print_exc()
-        return jsonify({"error": f"Prediction failed: {str(e)}"}), 500
+    role_chart = sorted(
+        [{'role': r, 'total': s['total'], 'at_risk': s['at_risk'],
+          'risk_pct': round(s['at_risk']/s['total']*100, 1)} for r, s in role_stats.items()],
+        key=lambda x: x['risk_pct'], reverse=True
+    )[:10]
 
-if __name__ == "__main__":
-    app.run(debug=True, port=5050)
+    risk_dist = {
+        'Critical': sum(1 for r in results if r['risk_label'] == 'Critical'),
+        'High': sum(1 for r in results if r['risk_label'] == 'High'),
+        'Medium': sum(1 for r in results if r['risk_label'] == 'Medium'),
+        'Low': sum(1 for r in results if r['risk_label'] == 'Low'),
+    }
+
+    return jsonify({
+        'summary': {
+            'total_employees': total,
+            'at_risk': at_risk_count,
+            'likely_stay': total - at_risk_count,
+            'attrition_rate': round(at_risk_count/total*100, 1),
+            'avg_risk_score': round(avg_risk, 1),
+        },
+        'risk_distribution': risk_dist,
+        'department_analysis': dept_chart,
+        'role_analysis': role_chart,
+        'predictions': results,
+        'model_accuracy': round(model_data['accuracy']*100, 1),
+    })
+
+
+@app.route('/api/sample-data', methods=['GET'])
+def sample_data():
+    """Return sample CSV data for demo"""
+    csv_path = os.path.join(os.path.dirname(__file__), 'data', 'ibm_hr_sample.csv')
+    if os.path.exists(csv_path):
+        df = pd.read_csv(csv_path)
+        return df.to_csv(index=False), 200, {'Content-Type': 'text/csv',
+                                              'Content-Disposition': 'attachment; filename=sample_employees.csv'}
+    return jsonify({'error': 'Sample data not found'}), 404
+
+
+if __name__ == '__main__':
+    load_model()
+    app.run(debug=True, host='0.0.0.0', port=5050)
