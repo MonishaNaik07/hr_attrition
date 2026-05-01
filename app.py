@@ -10,6 +10,8 @@ from flask import Flask, request, jsonify, send_from_directory, render_template
 import pandas as pd
 import numpy as np
 import pickle, os, io, json
+import requests
+import gdown
 from sklearn.preprocessing import LabelEncoder
 import warnings; warnings.filterwarnings('ignore')
 
@@ -17,17 +19,25 @@ app = Flask(__name__, template_folder='templates', static_folder='static')
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
 
 # ─── Load Model ──────────────────────────────────────────────────────────────
-MODEL_PATH = os.path.join(os.path.dirname(__file__), 'models', 'ensemble_model.pkl')
 model_data = None
+MODEL_URL = "https://drive.google.com/uc?id=1epOsvfcjnv9oBwXXYeXirES373YB770x"
 
 def load_model():
     global model_data
     try:
-        with open(MODEL_PATH, 'rb') as f:
+        if not os.path.exists("temp_model.pkl"):
+            print("Downloading model from Google Drive...")
+            gdown.download(MODEL_URL, "temp_model.pkl", quiet=False)
+        else:
+            print("Using cached model...")
+
+        with open("temp_model.pkl", "rb") as f:
             model_data = pickle.load(f)
+
         print(f"Model loaded. Accuracy: {model_data['accuracy']*100:.1f}%")
+
     except Exception as e:
-        print(f"Warning: Could not load model: {e}")
+        print(f"Error loading model: {e}")
 
 
 # ─── Feature Engineering (must match training) ───────────────────────────────
