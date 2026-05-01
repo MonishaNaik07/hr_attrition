@@ -11,6 +11,7 @@ from sklearn.preprocessing import StandardScaler, LabelEncoder
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, roc_auc_score, classification_report
 import warnings; warnings.filterwarnings('ignore')
+from sklearn.model_selection import StratifiedKFold
 
 
 def generate_ibm_hr_dataset(n=1470, seed=42):
@@ -80,7 +81,7 @@ def generate_ibm_hr_dataset(n=1470, seed=42):
     risk += (relationship_sat == 1) * 0.10
 
     # Reduce noise so the signal is cleaner → model can learn it better
-    noise = np.random.normal(0, 0.02, n)
+    noise = np.random.normal(0, 0.01, n)
     risk = np.clip(risk + noise, 0.0, 1.5)
 
     # Tighter thresholds: shrinks the random "coin-flip" zone
@@ -161,10 +162,10 @@ def get_feature_columns(df):
 class HybridEnsemble:
     def __init__(self):
         self.models = {
-            'random_forest':  (RandomForestClassifier(n_estimators=1500, max_depth=None,
+            'random_forest':  (RandomForestClassifier(n_estimators=1800, max_depth=None,
                                                        min_samples_leaf=1, random_state=42,
-                                                       class_weight=None, n_jobs=-1), 3),
-            'extra_trees':    (ExtraTreesClassifier(n_estimators=1200, max_depth=None,
+                                                       class_weight='balanced', n_jobs=-1), 3),
+            'extra_trees':    (ExtraTreesClassifier(n_estimators=1500, max_depth=None,class_weight='balanced',
                                                      min_samples_leaf=1, random_state=42, n_jobs=-1), 2),
             'gradient_boost1':(GradientBoostingClassifier(n_estimators=500, learning_rate=0.08,
                                                            max_depth=6, subsample=0.9, random_state=42), 3),
@@ -201,7 +202,7 @@ class HybridEnsemble:
         return p/tw
 
     def predict(self, X):
-        return (self.predict_proba(X)[:,1] >= 0.5).astype(int)
+        return (self.predict_proba(X)[:,1] >= 0.45).astype(int)
 
 
 def train_and_save():
@@ -218,19 +219,44 @@ def train_and_save():
     y = (df_feat['Attrition']=='Yes').astype(int)
     X = df_feat[feature_cols]
 
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
-    print(f"Training on {len(X_train)} samples, {len(feature_cols)} features...")
+    kf = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+
+    acc_scores = []
+    auc_scores = []
+
+    print(f"Training with 5-Fold Cross Validation on {len(X)} samples...")
+
+    for fold, (train_idx, val_idx) in enumerate(kf.split(X, y)):
+        print(f"\nFold {fold+1}...")
+
+        X_train, X_val = X.iloc[train_idx], X.iloc[val_idx]
+        y_train, y_val = y.iloc[train_idx], y.iloc[val_idx]
+
+        ensemble = HybridEnsemble()
+        ensemble.fit(X_train, y_train)
+
+        y_pred = ensemble.predict(X_val)
+        y_prob = ensemble.predict_proba(X_val)[:,1]
+
+        acc = accuracy_score(y_val, y_pred)
+        auc = roc_auc_score(y_val, y_prob)
+
+        acc_scores.append(acc)
+        auc_scores.append(auc)
+
+        print(f"  Fold Accuracy: {acc*100:.2f}% | AUC: {auc:.4f}")
+    print(f"\nCV Mean Accuracy: {np.mean(acc_scores)*100:.1f}%  ROC-AUC: {np.mean(auc_scores):.4f}")
+
+    print("\nTraining final model on FULL dataset...")
 
     ensemble = HybridEnsemble()
-    ensemble.fit(X_train, y_train)
+    ensemble.fit(X, y)
 
-    y_pred = ensemble.predict(X_test)
-    y_prob = ensemble.predict_proba(X_test)[:,1]
-    acc = accuracy_score(y_test, y_pred)
-    auc = roc_auc_score(y_test, y_prob)
-    print(f"\nAccuracy: {acc*100:.1f}%  ROC-AUC: {auc:.4f}")
-    print(classification_report(y_test, y_pred, target_names=['Stay','Leave']))
+    acc = np.mean(acc_scores)
+    auc = np.mean(auc_scores)
 
+    print(f"\nCV Accuracy: {acc*100:.1f}%  ROC-AUC: {auc:.4f}")
+    
     fi = {}
     if ensemble.feature_importance is not None and ensemble.feature_names:
         for nm, imp in zip(ensemble.feature_names, ensemble.feature_importance):

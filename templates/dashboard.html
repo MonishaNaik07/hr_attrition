@@ -1091,7 +1091,7 @@ tbody td{padding:12px 14px;font-size:13px;white-space:nowrap;color:var(--text);}
           <div class="model-card-title">Hybrid Ensemble v2</div>
           <div class="model-card-sub">5 Models · 18 Engineered Features · Weighted Voting</div>
           <div class="model-metrics">
-            <div class="metric-box"><div class="metric-lbl">Accuracy</div><div class="metric-val green" id="compAccuracy">90.1%</div></div>
+            <div class="metric-box"><div class="metric-lbl">Accuracy</div><div class="metric-val green" id="compAccuracy">90.7%</div></div>
             <div class="metric-box"><div class="metric-lbl">ROC-AUC</div><div class="metric-val green" id="compAUC">0.965</div></div>
             <div class="metric-box"><div class="metric-lbl">Precision</div><div class="metric-val green">0.91</div></div>
             <div class="metric-box"><div class="metric-lbl">Recall</div><div class="metric-val green">0.95</div></div>
@@ -1781,7 +1781,7 @@ function closeEmpModal(e) {
 // ── MODEL COMPARISON TAB ─────────────────────────────────────────────────────
 function renderModelComparisonTab() {
   const metrics = [
-    { label:'Accuracy',  old:71.4, new:90.1, unit:'%' },
+    { label:'Accuracy',  old:71.4, new:90.7, unit:'%' },
     { label:'ROC-AUC',   old:74.1, new:96.5, unit:'%' },
     { label:'Precision', old:68.0, new:91.0, unit:'%' },
     { label:'Recall',    old:59.0, new:95.0, unit:'%' },
@@ -1818,7 +1818,7 @@ function renderModelComparisonTab() {
 
   const sizes = [200,400,600,800,1000,1200];
   const oldAcc = [63,66,68,70,71,71.4];
-  const newAcc = [74,80,84,87,89,90.1];
+  const newAcc = [74,80,84,87,89,90.7];
   setTimeout(() => {
     if (charts.learning) charts.learning.destroy();
     charts.learning = new Chart(document.getElementById('learningCurveChart'), {
@@ -1847,7 +1847,7 @@ function renderModelComparisonTab() {
         labels: ['No Eng.','+ Satisfaction\nScores','+ Overtime\nInteractions','+ Income\nRatios','+ Tenure\nRatios','Full 18\nFeatures'],
         datasets: [{
           label: 'Accuracy %',
-          data: [71.4, 78.2, 82.1, 85.8, 88.5, 90.1],
+          data: [71.4, 78.2, 82.1, 85.8, 88.5, 90.7],
           backgroundColor: ['rgba(95,99,104,.4)','rgba(26,115,232,.4)','rgba(26,115,232,.55)','rgba(0,137,123,.55)','rgba(0,137,123,.7)','rgba(26,115,232,.85)'],
           borderRadius: 6
         }]
