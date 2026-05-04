@@ -1123,6 +1123,12 @@ tbody td{padding:12px 14px;font-size:13px;white-space:nowrap;color:var(--text);}
       </div>
 
       <div class="chart-card" style="margin-top:18px">
+        <div class="chart-title">K-Fold Cross Validation Results</div>
+        <div class="chart-sub">Accuracy and AUC across all 5 folds — hybrid ensemble</div>
+        <div class="chart-wrap"><canvas id="kfoldChart"></canvas></div>
+      </div>
+
+      <div class="chart-card" style="margin-top:18px">
         <div class="chart-title">Feature Engineering Impact</div>
         <div class="chart-sub">Accuracy improvement from each category of engineered features</div>
         <div class="chart-wrap"><canvas id="featureImpactChart"></canvas></div>
@@ -1237,6 +1243,7 @@ window.onload = async () => {
   document.getElementById('userAvatar').textContent = user[0].toUpperCase();
   await loadModelStats();
   renderModelComparisonTab();
+  switchTab('dashboard');
 };
 
 async function loadModelStats() {
@@ -1248,6 +1255,7 @@ async function loadModelStats() {
     document.getElementById('compAUC').textContent = d.auc;
     window._modelStats = d;
     renderFeatureImportanceSidebar(d.top_features || []);
+    renderKFoldChart(d.fold_accuracies || [], d.fold_aucs || []);
   } catch(e) {
     document.getElementById('accuracyBadge').textContent = 'Model Active';
   }
@@ -1261,6 +1269,11 @@ function switchTab(name) {
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   document.getElementById('tab-' + name).classList.add('active');
   document.getElementById('nav-' + name).classList.add('active');
+  if (name === 'model' && window._modelStats) {
+    setTimeout(() => {
+      renderKFoldChart(window._modelStats.fold_accuracies || [], window._modelStats.fold_aucs || []);
+    }, 50);
+  }
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -1778,6 +1791,57 @@ function closeEmpModal(e) {
   if (e.target.classList.contains('modal-overlay')) document.getElementById('empModal').classList.remove('open');
 }
 
+function renderKFoldChart(foldAccs, foldAucs) {
+  if (!foldAccs.length) return;
+  const labels = foldAccs.map((_,i) => 'Fold ' + (i+1));
+  setTimeout(() => {
+    const ctx = document.getElementById('kfoldChart');
+    if (!ctx) return;
+    if (charts.kfold) charts.kfold.destroy();
+    charts.kfold = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            label: 'Accuracy %',
+            data: foldAccs,
+            backgroundColor: 'rgba(26,115,232,.7)',
+            borderRadius: 6,
+            yAxisID: 'y',
+          },
+          {
+            label: 'ROC-AUC (×100)',
+            data: foldAucs.map(v => +(v*100).toFixed(2)),
+            backgroundColor: 'rgba(0,137,123,.65)',
+            borderRadius: 6,
+            yAxisID: 'y',
+          }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { labels: { color: '#5F6368', font: { size: 12 } } },
+          tooltip: {
+            callbacks: {
+              label: ctx => ctx.dataset.label + ': ' + ctx.parsed.y.toFixed(2) + '%'
+            }
+          }
+        },
+        scales: {
+          x: { grid: { color: 'rgba(0,0,0,.04)' }, ticks: { color: '#5F6368' } },
+          y: {
+            grid: { color: 'rgba(0,0,0,.04)' },
+            ticks: { color: '#5F6368', callback: v => v + '%' },
+            min: 80, max: 100
+          }
+        }
+      }
+    });
+  }, 300);
+}
+
 // ── MODEL COMPARISON TAB ─────────────────────────────────────────────────────
 function renderModelComparisonTab() {
   const metrics = [
@@ -1862,8 +1926,11 @@ function renderModelComparisonTab() {
       }
     });
   }, 100);
-}
 
+  if (window._modelStats) {
+    renderKFoldChart(window._modelStats.fold_accuracies || [], window._modelStats.fold_aucs || []);
+  }
+}
 // ══════════════════════════════════════════════════════════════════════════════
 // UTILITIES
 // ══════════════════════════════════════════════════════════════════════════════

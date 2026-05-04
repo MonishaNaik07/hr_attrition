@@ -267,6 +267,9 @@ def train_and_save():
         'ensemble': ensemble, 'feature_cols': feature_cols,
         'feature_importance': fi, 'accuracy': acc, 'auc': auc,
         'attrition_rate': float(rate), 'n_records': len(df),
+        'fold_accuracies': [round(float(s)*100, 2) for s in acc_scores],
+        'fold_aucs': [round(float(s), 4) for s in auc_scores],
+        'n_folds': 5,
     }
     os.makedirs(os.path.join(BASE_DIR, 'models'), exist_ok=True)
     with open(os.path.join(BASE_DIR, 'models', 'ensemble_model.pkl'), 'wb') as f:

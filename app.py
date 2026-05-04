@@ -210,8 +210,11 @@ def model_stats():
         'n_records': model_data['n_records'],
         'n_features': len(model_data['feature_cols']),
         'models': ['Random Forest (×3)', 'Extra Trees (×2)', 'Gradient Boost v1 (×3)',
-                   'Gradient Boost v2 (×2)', 'Neural Network (×1)'],
-        'top_features': [{'name': k, 'importance': round(v*100, 2)} for k,v in top_features]
+                'Gradient Boost v2 (×2)', 'Neural Network (×1)'],
+        'top_features': [{'name': k, 'importance': round(v*100, 2)} for k,v in top_features],
+        'fold_accuracies': model_data.get('fold_accuracies', []),
+        'fold_aucs': model_data.get('fold_aucs', []),
+        'n_folds': model_data.get('n_folds', 5),
     })
 
 
