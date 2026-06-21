@@ -9,7 +9,19 @@ from sklearn.ensemble import RandomForestClassifier, ExtraTreesClassifier, Gradi
 from sklearn.neural_network import MLPClassifier
 from sklearn.preprocessing import StandardScaler, LabelEncoder
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score, roc_auc_score, classification_report
+from sklearn.metrics import (
+    accuracy_score,
+    roc_auc_score,
+    classification_report,
+    precision_score,
+    recall_score,
+    f1_score,
+    confusion_matrix
+)
+
+from sklearn.linear_model import LogisticRegression
+from sklearn.tree import DecisionTreeClassifier
+from statsmodels.stats.contingency_tables import mcnemar
 import warnings; warnings.filterwarnings('ignore')
 from sklearn.model_selection import StratifiedKFold
 
@@ -208,18 +220,107 @@ class HybridEnsemble:
 def train_and_save():
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
     print("Generating IBM HR Analytics dataset (1470 records)...")
-    df = generate_ibm_hr_dataset(1470)
+    ibm_df = generate_ibm_hr_dataset(1470)
+
+    syn1 = pd.read_csv("data/synthetic_hr_data_1.csv")
+    syn2 = pd.read_csv("data/synthetic_hr_data_2.csv")
+    syn3 = pd.read_csv("data/synthetic_hr_data_3.csv")
+
+    synthetic_df = pd.concat(
+        [syn1, syn2, syn3],
+        ignore_index=True
+    )
+
+    df = pd.concat(
+        [ibm_df, synthetic_df],
+        ignore_index=True
+    )
     os.makedirs(os.path.join(BASE_DIR, 'data'), exist_ok=True)
     df.to_csv(os.path.join(BASE_DIR, 'data', 'ibm_hr_sample.csv'), index=False)
     rate = (df['Attrition']=='Yes').mean()
     print(f"Dataset: {df.shape}, Attrition rate: {rate:.1%}")
+    
+    print("\n" + "="*80)
+    print("TABLE V - DATASET UTILIZATION STRATEGY")
+    print("="*80)
+
+    print(f"Original IBM Dataset      : {len(ibm_df)}")
+    print(f"Synthetic Dataset         : {len(synthetic_df)}")
+    print(f"Combined Dataset          : {len(df)}")
+    
+    print("\n" + "="*100)
+    print("TABLE VII - SYNTHETIC DATASET VALIDATION")
+    print("="*100)
+
+    features = [
+        "Age",
+        "MonthlyIncome",
+        "YearsAtCompany",
+        "JobSatisfaction",
+        "WorkLifeBalance"
+    ]
+
+    print(
+        f"{'Feature':20}"
+        f"{'Orig Mean':15}"
+        f"{'Synth Mean':15}"
+        f"{'Orig Std':15}"
+        f"{'Synth Std':15}"
+    )
+
+    for col in features:
+        print(
+            f"{col:20}"
+            f"{ibm_df[col].mean():15.2f}"
+            f"{synthetic_df[col].mean():15.2f}"
+            f"{ibm_df[col].std():15.2f}"
+            f"{synthetic_df[col].std():15.2f}"
+        )
+
+    print("\n" + "="*80)
+    print("TABLE VIII - SYNTHETIC DATASET GENERATION PARAMETERS")
+    print("="*80)
+
+    dataset_sizes = [
+        len(syn1),
+        len(syn2),
+        len(syn3)
+    ]
+
+    print(f"Generated Records      : {len(synthetic_df)}")
+    print(f"Dataset 1 Records      : {dataset_sizes[0]}")
+    print(f"Dataset 2 Records      : {dataset_sizes[1]}")
+    print(f"Dataset 3 Records      : {dataset_sizes[2]}")
+
+    attr_rates = [
+        (syn1['Attrition'] == 'Yes').mean(),
+        (syn2['Attrition'] == 'Yes').mean(),
+        (syn3['Attrition'] == 'Yes').mean()
+    ]
+
+    print(f"Dataset 1 Attrition    : {attr_rates[0]:.4f}")
+    print(f"Dataset 2 Attrition    : {attr_rates[1]:.4f}")
+    print(f"Dataset 3 Attrition    : {attr_rates[2]:.4f}")
 
     df_feat = engineer_features(df)
     feature_cols = get_feature_columns(df_feat)
     y = (df_feat['Attrition']=='Yes').astype(int)
     X = df_feat[feature_cols]
+    
+    X_train_main, X_test, y_train_main, y_test = train_test_split(
+        X,
+        y,
+        test_size=0.20,
+        random_state=42,
+        stratify=y
+    )
+
+    print(f"Training Set              : {len(X_train_main)}")
+    print(f"Testing Set               : {len(X_test)}")
 
     kf = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+    
+    print(f"Cross Validation          : {kf.n_splits}-Fold")
 
     acc_scores = []
     auc_scores = []
@@ -229,11 +330,11 @@ def train_and_save():
     for fold, (train_idx, val_idx) in enumerate(kf.split(X, y)):
         print(f"\nFold {fold+1}...")
 
-        X_train, X_val = X.iloc[train_idx], X.iloc[val_idx]
-        y_train, y_val = y.iloc[train_idx], y.iloc[val_idx]
+        X_train_main_cv, X_val = X.iloc[train_idx], X.iloc[val_idx]
+        y_train_main_cv, y_val = y.iloc[train_idx], y.iloc[val_idx]
 
         ensemble = HybridEnsemble()
-        ensemble.fit(X_train, y_train)
+        ensemble.fit(X_train_main_cv, y_train_main_cv)
 
         y_pred = ensemble.predict(X_val)
         y_prob = ensemble.predict_proba(X_val)[:,1]
@@ -246,16 +347,488 @@ def train_and_save():
 
         print(f"  Fold Accuracy: {acc*100:.2f}% | AUC: {auc:.4f}")
     print(f"\nCV Mean Accuracy: {np.mean(acc_scores)*100:.1f}%  ROC-AUC: {np.mean(auc_scores):.4f}")
+    print("\nTraining comparison models...")
+        
+    scaler = StandardScaler()
+
+    X_train_main_scaled = scaler.fit_transform(X_train_main)
+    X_test_scaled = scaler.transform(X_test)
+    
+    lr = LogisticRegression(
+    max_iter=5000,
+    random_state=42
+    )
+
+    lr.fit(X_train_main_scaled, y_train_main)
+
+    lr_pred = lr.predict(X_test_scaled)
+
+    lr_prob = lr.predict_proba(X_test_scaled)[:,1]
+    
+    lr_acc = accuracy_score(y_test, lr_pred)
+
+    lr_recall = recall_score(y_test, lr_pred)
+
+    lr_auc = roc_auc_score(y_test, lr_prob)
+    
+    dt = DecisionTreeClassifier(
+    random_state=42
+    )
+
+    dt.fit(X_train_main, y_train_main)
+
+    dt_pred = dt.predict(X_test)
+
+    dt_prob = dt.predict_proba(X_test)[:,1]
+
+    dt_acc = accuracy_score(y_test, dt_pred)
+
+    dt_recall = recall_score(y_test, dt_pred)
+
+    dt_auc = roc_auc_score(y_test, dt_prob)
+    
+    rf = RandomForestClassifier(
+    n_estimators=1800,
+    random_state=42,
+    class_weight='balanced'
+    )
+
+    rf.fit(X_train_main, y_train_main)
+
+    rf_pred = rf.predict(X_test)
+
+    rf_prob = rf.predict_proba(X_test)[:,1]
+
+    rf_acc = accuracy_score(y_test, rf_pred)
+
+    rf_recall = recall_score(y_test, rf_pred)
+
+    rf_auc = roc_auc_score(y_test, rf_prob)
+    
+    gb = GradientBoostingClassifier(
+    n_estimators=500,
+    learning_rate=0.08,
+    max_depth=6,
+    subsample=0.9,
+    random_state=42
+    )
+
+    gb.fit(X_train_main, y_train_main)
+
+    gb_pred = gb.predict(X_test)
+
+    gb_prob = gb.predict_proba(X_test)[:,1]
+
+    gb_acc = accuracy_score(y_test, gb_pred)
+
+    gb_recall = recall_score(y_test, gb_pred)
+
+    gb_auc = roc_auc_score(y_test, gb_prob)
+    
+    print("\n" + "="*80)
+    print("TABLE X - HYPERPARAMETERS")
+    print("="*80)
+
+    print("\nRandom Forest")
+
+    for k, v in rf.get_params().items():
+        if k in [
+            "n_estimators",
+            "class_weight",
+            "max_depth",
+            "min_samples_leaf",
+            "random_state"
+        ]:
+            print(f"{k} = {v}")
+
+    print("\nGradient Boosting")
+
+    for k, v in gb.get_params().items():
+        if k in [
+            "n_estimators",
+            "learning_rate",
+            "max_depth",
+            "subsample",
+            "random_state"
+        ]:
+            print(f"{k} = {v}")
+
+    print("\nNeural Network")
+
+    nn_model = MLPClassifier(
+        hidden_layer_sizes=(256,128,64,32),
+        activation='relu',
+        solver='adam',
+        alpha=0.00001,
+        max_iter=1000,
+        random_state=42,
+        early_stopping=False
+    )
+
+    for k, v in nn_model.get_params().items():
+        if k in [
+            "hidden_layer_sizes",
+            "activation",
+            "solver",
+            "alpha",
+            "max_iter"
+        ]:
+            print(f"{k} = {v}")
 
     print("\nTraining final model on FULL dataset...")
 
     ensemble = HybridEnsemble()
-    ensemble.fit(X, y)
 
+    ensemble.fit(X_train_main, y_train_main)
+
+    ensemble_pred = ensemble.predict(X_test)
+
+    ensemble_prob = ensemble.predict_proba(X_test)[:,1]
+    
+    ensemble_acc = accuracy_score(
+    y_test,
+    ensemble_pred
+    )
+
+    ensemble_precision = precision_score(
+        y_test,
+        ensemble_pred
+    )
+
+    ensemble_recall = recall_score(
+        y_test,
+        ensemble_pred
+    )
+
+    ensemble_f1 = f1_score(
+        y_test,
+        ensemble_pred
+    )
+
+    ensemble_auc = roc_auc_score(
+        y_test,
+        ensemble_prob
+    )
+    
+    print("\n" + "="*80)
+    print("TABLE VI - MCNEMAR STATISTICAL TEST")
+    print("="*80)
+
+    # Ensemble vs Random Forest
+
+    ensemble_correct = ensemble_pred == y_test
+    rf_correct = rf_pred == y_test
+
+    table_rf = [[0, 0], [0, 0]]
+
+    for e, r in zip(ensemble_correct, rf_correct):
+        if e and r:
+            table_rf[0][0] += 1
+        elif e and not r:
+            table_rf[0][1] += 1
+        elif not e and r:
+            table_rf[1][0] += 1
+        else:
+            table_rf[1][1] += 1
+
+    result_rf = mcnemar(
+        table_rf,
+        exact=False,
+        correction=True
+    )
+
+    print(
+        f"Ensemble vs Random Forest : "
+        f"Chi2={result_rf.statistic:.4f} "
+        f"P={result_rf.pvalue:.4f}"
+    )
+
+    # Ensemble vs Gradient Boosting
+
+    gb_correct = gb_pred == y_test
+
+    table_gb = [[0, 0], [0, 0]]
+
+    for e, g in zip(ensemble_correct, gb_correct):
+        if e and g:
+            table_gb[0][0] += 1
+        elif e and not g:
+            table_gb[0][1] += 1
+        elif not e and g:
+            table_gb[1][0] += 1
+        else:
+            table_gb[1][1] += 1
+
+    result_gb = mcnemar(
+        table_gb,
+        exact=False,
+        correction=True
+    )
+
+    print(
+        f"Ensemble vs Gradient Boosting : "
+        f"Chi2={result_gb.statistic:.4f} "
+        f"P={result_gb.pvalue:.4f}"
+    )
+
+    tn, fp, fn, tp = confusion_matrix(
+    y_test,
+    ensemble_pred
+    ).ravel()
+
+    sensitivity = tp / (tp + fn)
+
+    specificity = tn / (tn + fp)
+    
+    print("\n")
+    print("="*70)
+    print("FINAL PERFORMANCE")
+    print("="*70)
+
+    print(f"Accuracy    : {ensemble_acc:.4f}")
+    print(f"Precision   : {ensemble_precision:.4f}")
+    print(f"Recall      : {ensemble_recall:.4f}")
+    print(f"Sensitivity : {sensitivity:.4f}")
+    print(f"F1 Score    : {ensemble_f1:.4f}")
+    print(f"ROC-AUC     : {ensemble_auc:.4f}")
+    
+    print("\n")
+    print("="*100)
+    print("TABLE XVI")
+    print("="*100)
+
+    print(
+        f"{'Model':30}"
+        f"{'Accuracy':15}"
+        f"{'Recall':15}"
+        f"{'ROC-AUC':15}"
+    )
+
+    print("-"*100)
+
+    print(
+        f"{'Logistic Regression':30}"
+        f"{lr_acc:.4f}"
+        f"{lr_recall:15.4f}"
+        f"{lr_auc:15.4f}"
+    )
+
+    print(
+        f"{'Decision Tree':30}"
+        f"{dt_acc:.4f}"
+        f"{dt_recall:15.4f}"
+        f"{dt_auc:15.4f}"
+    )
+
+    print(
+        f"{'Random Forest':30}"
+        f"{rf_acc:.4f}"
+        f"{rf_recall:15.4f}"
+        f"{rf_auc:15.4f}"
+    )
+
+    print(
+        f"{'Gradient Boosting':30}"
+        f"{gb_acc:.4f}"
+        f"{gb_recall:15.4f}"
+        f"{gb_auc:15.4f}"
+    )
+
+    print(
+        f"{'Hybrid Ensemble':30}"
+        f"{ensemble_acc:.4f}"
+        f"{ensemble_recall:15.4f}"
+        f"{ensemble_auc:15.4f}"
+    )
+    
+    print("\n" + "="*80)
+    print("TABLE XIV - PERFORMANCE IMPROVEMENT ANALYSIS")
+    print("="*80)
+
+    print(
+        f"Ensemble vs Logistic Regression : "
+        f"{(ensemble_acc - lr_acc)*100:.2f}%"
+    )
+
+    print(
+        f"Ensemble vs Decision Tree : "
+        f"{(ensemble_acc - dt_acc)*100:.2f}%"
+    )
+
+    print(
+        f"Ensemble vs Random Forest : "
+        f"{(ensemble_acc - rf_acc)*100:.2f}%"
+    )
+
+    print(
+        f"Ensemble vs Gradient Boosting : "
+        f"{(ensemble_acc - gb_acc)*100:.2f}%"
+    )
+    
     acc = np.mean(acc_scores)
     auc = np.mean(auc_scores)
+    print("\nRunning Ablation Study...")
+    
+    # ==========================================
+    # WITHOUT FEATURE ENGINEERING
+    # ==========================================
 
+    raw_y = (df['Attrition'] == 'Yes').astype(int)
+
+    raw_X = df.drop(
+        columns=['Attrition']
+    )
+
+    raw_X = pd.get_dummies(
+        raw_X,
+        drop_first=True
+    )
+
+    raw_X_train, raw_X_test, raw_y_train, raw_y_test = train_test_split(
+        raw_X,
+        raw_y,
+        test_size=0.2,
+        random_state=42,
+        stratify=raw_y
+    )
+
+    rf_raw = RandomForestClassifier(
+        n_estimators=500,
+        random_state=42
+    )
+
+    rf_raw.fit(
+        raw_X_train,
+        raw_y_train
+    )
+
+    raw_pred = rf_raw.predict(raw_X_test)
+
+    raw_prob = rf_raw.predict_proba(raw_X_test)[:,1]
+
+    no_feature_acc = accuracy_score(
+        raw_y_test,
+        raw_pred
+    )
+
+    no_feature_auc = roc_auc_score(
+        raw_y_test,
+        raw_prob
+    )
+
+    # ==========================================
+    # WITHOUT ENSEMBLE
+    # ==========================================
+
+    rf_ablation = RandomForestClassifier(
+        n_estimators=1800,
+        random_state=42,
+        class_weight='balanced'
+    )
+
+    rf_ablation.fit(
+        X_train_main,
+        y_train_main
+    )
+
+    rf_ablation_pred = rf_ablation.predict(
+        X_test
+    )
+
+    rf_ablation_prob = rf_ablation.predict_proba(
+        X_test
+    )[:,1]
+
+    rf_only_acc = accuracy_score(
+        y_test,
+        rf_ablation_pred
+    )
+
+    rf_only_auc = roc_auc_score(
+        y_test,
+        rf_ablation_prob
+    )
+
+    # ==========================================
+    # WITHOUT RISK LAYER
+    # ==========================================
+
+    class HybridEnsembleNoRisk(HybridEnsemble):
+
+        def predict(self, X):
+            return (
+                self.predict_proba(X)[:,1] >= 0.50
+            ).astype(int)
+
+    ensemble_no_risk = HybridEnsembleNoRisk()
+
+    ensemble_no_risk.fit(
+        X_train_main,
+        y_train_main
+    )
+
+    pred_no_risk = ensemble_no_risk.predict(
+        X_test
+    )
+
+    prob_no_risk = ensemble_no_risk.predict_proba(
+        X_test
+    )[:,1]
+
+    no_risk_acc = accuracy_score(
+        y_test,
+        pred_no_risk
+    )
+
+    no_risk_auc = roc_auc_score(
+        y_test,
+        prob_no_risk
+    )
+
+    # ==========================================
+    # FULL FRAMEWORK
+    # ==========================================
+
+    full_acc = ensemble_acc
+    full_auc = ensemble_auc
+    
     print(f"\nCV Accuracy: {acc*100:.1f}%  ROC-AUC: {auc:.4f}")
+    
+    print("\n" + "="*80)
+    print("TABLE XV - ABLATION STUDY")
+    print("="*80)
+
+    print(
+        f"{'Configuration':35}"
+        f"{'Accuracy':15}"
+        f"{'ROC-AUC':15}"
+    )
+
+    print("-"*80)
+
+    print(
+        f"{'Without Feature Engineering':35}"
+        f"{no_feature_acc:.4f}"
+        f"{no_feature_auc:15.4f}"
+    )
+
+    print(
+        f"{'Without Ensemble':35}"
+        f"{rf_only_acc:.4f}"
+        f"{rf_only_auc:15.4f}"
+    )
+
+    print(
+        f"{'Without Risk Layer':35}"
+        f"{no_risk_acc:.4f}"
+        f"{no_risk_auc:15.4f}"
+    )
+
+    print(
+        f"{'Full Framework':35}"
+        f"{full_acc:.4f}"
+        f"{full_auc:15.4f}"
+    )
     
     fi = {}
     if ensemble.feature_importance is not None and ensemble.feature_names:
