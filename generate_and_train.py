@@ -174,18 +174,18 @@ def get_feature_columns(df):
 class HybridEnsemble:
     def __init__(self):
         self.models = {
-            'random_forest':  (RandomForestClassifier(n_estimators=1800, max_depth=None,
-                                                       min_samples_leaf=1, random_state=42,
-                                                       class_weight='balanced', n_jobs=-1), 3),
-            'extra_trees':    (ExtraTreesClassifier(n_estimators=1500, max_depth=None,class_weight='balanced',
-                                                     min_samples_leaf=1, random_state=42, n_jobs=-1), 2),
-            'gradient_boost1':(GradientBoostingClassifier(n_estimators=500, learning_rate=0.08,
-                                                           max_depth=6, subsample=0.9, random_state=42), 3),
-            'gradient_boost2':(GradientBoostingClassifier(n_estimators=500, learning_rate=0.04,
-                                                           max_depth=5, subsample=0.85, random_state=7), 2),
+            'random_forest':  (RandomForestClassifier(n_estimators=300, max_depth=None,
+                                    min_samples_leaf=1, random_state=42,
+                                    class_weight='balanced', n_jobs=-1), 3),
+            'extra_trees':    (ExtraTreesClassifier(n_estimators=300, max_depth=None,class_weight='balanced',
+                                    min_samples_leaf=1, random_state=42, n_jobs=-1), 2),
+            'gradient_boost1':(GradientBoostingClassifier(n_estimators=150, learning_rate=0.08,
+                                    max_depth=6, subsample=0.9, random_state=42), 3),
+            'gradient_boost2':(GradientBoostingClassifier(n_estimators=150, learning_rate=0.04,
+                                    max_depth=5, subsample=0.85, random_state=7), 2),
             'neural_net':     (MLPClassifier(hidden_layer_sizes=(256,128,64,32), activation='relu',
-                                             solver='adam', alpha=0.00001, max_iter=1000,
-                                             random_state=42, early_stopping=False), 1),
+                                    solver='adam', alpha=0.00001, max_iter=1000,
+                                    random_state=42, early_stopping=False), 1),
         }
         self.scaler = StandardScaler()
         self.feature_names = None
