@@ -20,7 +20,7 @@ app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
 
 # ─── Load Model ──────────────────────────────────────────────────────────────
 model_data = None
-MODEL_URL = "https://drive.google.com/uc?id=1m5JN15KpKRqi8tviDMe81il9lER1EOFJ"
+MODEL_URL = "https://drive.google.com/uc?id=1MYWgr89Qegivam6yRdqt1Map3jbJgp3Q"
 
 def load_model():
     global model_data
