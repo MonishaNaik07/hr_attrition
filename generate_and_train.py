@@ -665,8 +665,8 @@ def train_and_save():
         f"{(ensemble_acc - gb_acc)*100:.2f}%"
     )
     
-    acc = np.mean(acc_scores)
-    auc = np.mean(auc_scores)
+    acc = ensemble_acc
+    auc = ensemble_auc
     print("\nRunning Ablation Study...")
     
     # ==========================================
