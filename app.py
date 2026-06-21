@@ -20,18 +20,12 @@ app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
 
 # ─── Load Model ──────────────────────────────────────────────────────────────
 model_data = None
-MODEL_URL = "https://drive.google.com/uc?id=1epOsvfcjnv9oBwXXYeXirES373YB770x"
-
 def load_model():
     global model_data
     try:
-        if not os.path.exists("temp_model.pkl"):
-            print("Downloading model from Google Drive...")
-            gdown.download(MODEL_URL, "temp_model.pkl", quiet=False)
-        else:
-            print("Using cached model...")
+        print("Loading local model...")
 
-        with open("temp_model.pkl", "rb") as f:
+        with open("models/ensemble_model.pkl", "rb") as f:
             model_data = pickle.load(f)
 
         print(f"Model loaded. Accuracy: {model_data['accuracy']*100:.1f}%")
